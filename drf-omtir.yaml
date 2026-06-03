@@ -1,0 +1,39 @@
+{
+  "policy_version": "drf-omtir-flight-recorder-v0.1",
+  "unknown_action_decision": "DENY",
+  "actions": [
+    {
+      "name": "delete_index",
+      "effect": "DESTRUCTIVE",
+      "decision": "DENY",
+      "required_evidence_lanes": [],
+      "executable": false
+    },
+    {
+      "name": "search_logs",
+      "effect": "READ_ONLY",
+      "decision": "ALLOW",
+      "required_evidence_lanes": [],
+      "executable": true
+    },
+    {
+      "name": "restart_service",
+      "effect": "STATE_CHANGING",
+      "decision": "REQUEST_REVIEW",
+      "required_evidence_lanes": [
+        "STRUCTURAL"
+      ],
+      "executable": false
+    }
+  ],
+  "proxy": {
+    "wal_path": "wal/proxy.jsonl",
+    "redact_keys": [
+      "authorization",
+      "api_key",
+      "token",
+      "password",
+      "secret"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "errors": [],
+  "last_record_hash": "b15ee810bb14b56129bdff865b5aea91a8db65d1268eb715463f0038afbc8c99",
+  "records": 5,
+  "status": "PASS",
+  "verifier": "drf_omtir_flight_recorder_verifier"
+}

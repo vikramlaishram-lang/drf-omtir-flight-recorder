@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+  <title id="title">DRF and OMTIR governed action-accountability architecture</title>
+  <desc id="desc">A model proposes an action. DRF decides executable authority. An allowed typed MCP tool emits structural evidence. OMTIR decides confirmation authority. A WAL records the trace. An independent verifier checks it. A Trust Receipt explains it.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#334155"/>
+    </marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <style>
+      .title { font: 700 42px Arial, sans-serif; fill: #102a43; }
+      .subtitle { font: 400 20px Arial, sans-serif; fill: #486581; }
+      .node-title { font: 700 25px Arial, sans-serif; fill: #102a43; }
+      .node-copy { font: 400 18px Arial, sans-serif; fill: #334e68; }
+      .arrow-copy { font: 700 16px Arial, sans-serif; fill: #334e68; }
+      .boundary-title { font: 700 20px Arial, sans-serif; fill: #9f1239; }
+      .boundary-copy { font: 400 17px Arial, sans-serif; fill: #881337; }
+      .footer { font: 700 18px Arial, sans-serif; fill: #102a43; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1120" fill="#f8fafc"/>
+  <rect x="0" y="0" width="1600" height="140" fill="#e2e8f0"/>
+  <text x="110" y="68" class="title">DRF + OMTIR Governed Action-Accountability Layer</text>
+  <text x="112" y="106" class="subtitle">The model proposes. Deterministic gates retain executable authority and confirmed-claim authority.</text>
+
+  <rect x="1015" y="175" width="470" height="220" rx="8" fill="#fff1f2" stroke="#fb7185" stroke-width="3"/>
+  <text x="1050" y="220" class="boundary-title">Authority Boundary</text>
+  <text x="1050" y="258" class="boundary-copy">The model can propose actions, claims,</text>
+  <text x="1050" y="286" class="boundary-copy">and adaptations. It cannot grant itself</text>
+  <text x="1050" y="314" class="boundary-copy">permission to execute a tool or promote</text>
+  <text x="1050" y="342" class="boundary-copy">an unsupported claim as confirmed truth.</text>
+
+  <rect x="185" y="185" width="710" height="100" rx="8" fill="#dbeafe" stroke="#3b82f6" stroke-width="3" filter="url(#shadow)"/>
+  <text x="235" y="227" class="node-title">Gemini / Agent</text>
+  <text x="235" y="260" class="node-copy">Proposes an action, hypothesis, or adaptive retry</text>
+
+  <line x1="540" y1="285" x2="540" y2="340" stroke="#334155" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="575" y="322" class="arrow-copy">proposal</text>
+
+  <rect x="185" y="350" width="710" height="100" rx="8" fill="#fee2e2" stroke="#ef4444" stroke-width="3" filter="url(#shadow)"/>
+  <text x="235" y="392" class="node-title">DRF Action Gate</text>
+  <text x="235" y="425" class="node-copy">Returns ALLOW, DENY, or REQUEST_REVIEW before execution</text>
+
+  <line x1="540" y1="450" x2="540" y2="505" stroke="#334155" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="575" y="487" class="arrow-copy">ALLOW only</text>
+
+  <rect x="185" y="515" width="710" height="100" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="3" filter="url(#shadow)"/>
+  <text x="235" y="557" class="node-title">Typed MCP Tool</text>
+  <text x="235" y="590" class="node-copy">Executes a permitted action and emits STRUCTURAL evidence</text>
+
+  <line x1="540" y1="615" x2="540" y2="670" stroke="#334155" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="575" y="652" class="arrow-copy">tool-backed evidence</text>
+
+  <rect x="185" y="680" width="710" height="100" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="3" filter="url(#shadow)"/>
+  <text x="235" y="722" class="node-title">OMTIR Claim Gate</text>
+  <text x="235" y="755" class="node-copy">Returns CONFIRMED, HYPOTHESIS, or REJECTED</text>
+
+  <line x1="540" y1="780" x2="540" y2="835" stroke="#334155" stroke-width="4" marker-end="url(#arrow)"/>
+  <text x="575" y="817" class="arrow-copy">evidence-linked record</text>
+
+  <rect x="185" y="845" width="710" height="100" rx="8" fill="#ede9fe" stroke="#8b5cf6" stroke-width="3" filter="url(#shadow)"/>
+  <text x="235" y="887" class="node-title">Hash-Chained WAL</text>
+  <text x="235" y="920" class="node-copy">Records proposals, decisions, evidence, adaptations, and links</text>
+
+  <line x1="895" y1="895" x2="1030" y2="895" stroke="#334155" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="1050" y="840" width="370" height="110" rx="8" fill="#e0f2fe" stroke="#0284c7" stroke-width="3" filter="url(#shadow)"/>
+  <text x="1090" y="882" class="node-title">Verifier</text>
+  <text x="1090" y="915" class="node-copy">Checks the frozen trace</text>
+
+  <line x1="1235" y1="950" x2="1235" y2="995" stroke="#334155" stroke-width="4" marker-end="url(#arrow)"/>
+  <rect x="1050" y="1005" width="370" height="80" rx="8" fill="#fce7f3" stroke="#db2777" stroke-width="3" filter="url(#shadow)"/>
+  <text x="1090" y="1054" class="node-title">Trust Receipt</text>
+
+  <text x="185" y="1068" class="footer">Operating rule: Do not let product vision outrun validation evidence.</text>
+</svg>

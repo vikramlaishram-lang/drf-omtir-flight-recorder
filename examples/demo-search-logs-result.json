@@ -1,0 +1,15 @@
+{
+  "matches": [
+    {
+      "message": "Synthetic demo log result for governance evidence.",
+      "service": "checkout-api",
+      "severity": "warning"
+    }
+  ],
+  "query": {
+    "query": "error OR latency",
+    "service": "checkout-api"
+  },
+  "source": "local_demo_fixture",
+  "tool": "search_logs"
+}
