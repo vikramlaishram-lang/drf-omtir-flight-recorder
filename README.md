@@ -110,7 +110,11 @@ examples/resilient-demo-quarantined-tool-result.json
 
 Boundary: this local resilient demo validates one bounded DRF + OMTIR recovery sequence with TrueFoundry AI Gateway and Gemini Flash Lite recorded as the model route, including a rate-limit recovery marker. The live TrueFoundry evidence is the separate Request Trace screenshot showing the 429 rate-limit response. AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or all-agent safety.
 
-The resilient Trust Receipt explicitly shows that quarantined evidence and rejected hypotheses are excluded from the confirmed claim set. A local review queue artifact is generated for the `REQUEST_REVIEW` remediation event.
+The resilient Trust Receipt explicitly shows WAL SHA-256 binding, last-record hash, verifier status, quarantined evidence excluded from the confirmed claim set, and rejected hypotheses excluded from the confirmed claim set. A local review queue artifact is generated for the `REQUEST_REVIEW` remediation event. The demo authority hierarchy is documented in:
+
+```text
+docs/hackathon_truefoundry_resilient_agents/AUTHORITY_MANIFEST_v0.1.md
+```
 
 ## Verify And Generate Receipt
 

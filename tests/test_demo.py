@@ -75,6 +75,7 @@ class DemoTest(unittest.TestCase):
             receipt_text = receipt_path.read_text(encoding="utf-8")
             self.assertIn("TrueFoundry AI Gateway rate limit", receipt_text)
             self.assertIn("AWS Bedrock: NOT_USED", receipt_text)
+            self.assertIn("WAL SHA-256:", receipt_text)
             self.assertIn("Quarantined evidence excluded from confirmed claim set", receipt_text)
             self.assertIn("Rejected hypotheses excluded from confirmed claim set", receipt_text)
             self.assertIn("Review queue: reports/resilient-demo-review-queue.jsonl", receipt_text)

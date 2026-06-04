@@ -1,9 +1,10 @@
 # DRF + OMTIR Flight Recorder Trust Receipt v0.1
 
-Generated: 2026-06-04T18:15:13.156837Z
-WAL: wal\resilient-demo.jsonl
+Generated: 2026-06-04T18:50:13.681174Z
+WAL: C:\Users\vikra\Documents\GitHub\drf-omtir-flight-recorder\wal\resilient-demo.jsonl
+WAL SHA-256: a0dc07acf96e1bc405b799ecdaf7d3593e7668d18c2fa654f0b927d779159ee2
 Records: 6
-Last record hash: 8ad48e76f19e18ff08ec96952627767d4d8de7cc2ccf75fe7dc030b9db7d28e4
+Last record hash: 910867d03e96ca728f234b226837c2f803bcf5001c6c2b1e0838521fd582ad9a
 
 ## Action Decisions
 

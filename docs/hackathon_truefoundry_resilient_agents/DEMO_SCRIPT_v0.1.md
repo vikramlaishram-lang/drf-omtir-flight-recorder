@@ -12,13 +12,30 @@ model route: google-gemini/gemini-3.1-flash-lite
 AWS Bedrock: NOT_USED
 ```
 
-2. Run:
+2. Show the authority manifest:
+
+```text
+docs/hackathon_truefoundry_resilient_agents/AUTHORITY_MANIFEST_v0.1.md
+```
+
+Point at the hierarchy:
+
+```text
+Model proposes only
+DRF decides action authority
+OMTIR decides confirmed-claim authority
+WAL is the source-of-truth trace
+Verifier checks the trace
+Trust Receipt explains the trace
+```
+
+3. Run:
 
 ```bash
 drf-omtir resilient-demo
 ```
 
-3. Run:
+4. Run:
 
 ```bash
 drf-omtir verify wal/resilient-demo.jsonl
@@ -33,28 +50,30 @@ records: 6
 errors: []
 ```
 
-4. Run:
+5. Run:
 
 ```bash
 drf-omtir receipt wal/resilient-demo.jsonl
 ```
 
-5. Open:
+6. Open:
 
 ```text
 receipts/resilient-demo-trust-receipt.md
 ```
 
-6. Show the governance consequences:
+7. Show the governance consequences:
 
 ```text
+WAL SHA-256
+Last record hash
 Quarantined evidence excluded from confirmed claim set
 Rejected hypotheses excluded from confirmed claim set
 Pending human review events
 Review queue: reports/resilient-demo-review-queue.jsonl
 ```
 
-7. End with the boundary:
+8. End with the boundary:
 
 ```text
 AWS Bedrock was not used in this bounded run.

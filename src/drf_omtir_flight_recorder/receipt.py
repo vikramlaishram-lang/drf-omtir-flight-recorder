@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -68,9 +69,10 @@ def _governance_consequences(records: list[dict[str, Any]], root: Path) -> dict[
 def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str, Any]:
     wal_path = Path(path)
     root_path = Path(root).resolve()
+    wal_bytes = wal_path.read_bytes()
     records = [
         json.loads(line)
-        for line in wal_path.read_text(encoding="utf-8").splitlines()
+        for line in wal_bytes.decode("utf-8").splitlines()
         if line.strip()
     ]
     decisions: dict[str, int] = {}
@@ -89,6 +91,7 @@ def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str
         "receipt_version": "drf_omtir_flight_recorder_trust_receipt.v0.1",
         "generated_at": utc_now(),
         "wal_path": str(wal_path),
+        "wal_sha256": hashlib.sha256(wal_bytes).hexdigest(),
         "records": len(records),
         "last_record_hash": records[-1].get("record_hash") if records else None,
         "action_decisions": decisions,
@@ -113,6 +116,7 @@ def render_markdown(receipt: dict[str, Any]) -> str:
             "",
             f"Generated: {receipt['generated_at']}",
             f"WAL: {receipt['wal_path']}",
+            f"WAL SHA-256: {receipt['wal_sha256']}",
             f"Records: {receipt['records']}",
             f"Last record hash: {receipt['last_record_hash']}",
             "",
