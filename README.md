@@ -89,6 +89,8 @@ bad_tool_result             -> QUARANTINED
 unsupported_claim           -> REJECTED_HYPOTHESIS
 evidence_linked_claim       -> CONFIRMED
 risky_remediation           -> REQUEST_REVIEW
+authority_trace             -> recorded
+review_queue                -> generated
 WAL records                 -> 6
 verifier                    -> PASS
 trust_receipt               -> generated
@@ -100,12 +102,15 @@ The resilient demo writes:
 wal/resilient-demo.jsonl
 reports/resilient-demo-verifier-report.json
 reports/resilient-demo-trace.json
+reports/resilient-demo-review-queue.jsonl
 receipts/resilient-demo-trust-receipt.md
 examples/resilient-demo-search-logs-result.json
 examples/resilient-demo-quarantined-tool-result.json
 ```
 
 Boundary: this local resilient demo validates one bounded DRF + OMTIR recovery sequence with TrueFoundry AI Gateway and Gemini Flash Lite recorded as the model route, including a rate-limit recovery marker. The live TrueFoundry evidence is the separate Request Trace screenshot showing the 429 rate-limit response. AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or all-agent safety.
+
+The resilient Trust Receipt explicitly shows that quarantined evidence and rejected hypotheses are excluded from the confirmed claim set. A local review queue artifact is generated for the `REQUEST_REVIEW` remediation event.
 
 ## Verify And Generate Receipt
 
@@ -114,7 +119,7 @@ drf-omtir verify wal/demo.jsonl
 drf-omtir receipt wal/demo.jsonl
 ```
 
-The verifier checks the hash-chained WAL and required governance events. The receipt command creates a human-readable Trust Receipt from the run.
+The verifier checks the hash-chained WAL and required governance events. Its output includes visible hash links (`previous_hash`, `record_hash`, and `next_hash`) so reviewers can inspect the chain rather than only seeing a PASS label. The receipt command creates a human-readable Trust Receipt from the run.
 
 ## Policy Format
 

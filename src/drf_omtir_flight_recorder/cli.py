@@ -51,10 +51,13 @@ def _print_resilient_demo(summary: dict[str, object]) -> None:
     )
     print(f"evidence_linked_claim       -> {'CONFIRMED' if checks['evidence_linked_claim_CONFIRMED'] else 'FAIL'}")
     print(f"risky_remediation           -> {'REQUEST_REVIEW' if checks['risky_remediation_REQUEST_REVIEW'] else 'FAIL'}")
+    print(f"authority_trace             -> {'recorded' if checks['authority_trace_recorded'] else 'FAIL'}")
+    print(f"review_queue                -> {'generated' if checks['review_queue_generated'] else 'FAIL'}")
     print(f"WAL records                 -> {summary['wal_records'] if checks['wal_records'] else 'FAIL'}")
     print(f"verifier                    -> {summary['verifier_status'] if checks['verifier_PASS'] else 'FAIL'}")
     print(f"trust_receipt               -> {'generated' if checks['trust_receipt_generated'] else 'FAIL'}")
     print(f"WAL: {summary['wal_path']}")
+    print(f"Review Queue: {summary['review_queue_path']}")
     print(f"Trust Receipt: {summary['trust_receipt_path']}")
 
 

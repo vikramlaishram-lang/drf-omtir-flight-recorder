@@ -15,6 +15,7 @@ class VerificationReport:
     records: int
     errors: list[str]
     last_record_hash: str | None
+    hash_links: list[dict[str, Any]] | None = None
     verifier: str = "drf_omtir_flight_recorder_verifier"
 
     def to_dict(self) -> dict[str, Any]:
@@ -23,6 +24,7 @@ class VerificationReport:
             "records": self.records,
             "errors": self.errors,
             "last_record_hash": self.last_record_hash,
+            "hash_links": self.hash_links or [],
             "verifier": self.verifier,
         }
 
@@ -145,4 +147,26 @@ def verify_wal(path: str | Path, *, root: str | Path = ".") -> VerificationRepor
                     errors.append(f"{event_id}: structural evidence output hash mismatch")
 
     last_hash = records[-1].get("record_hash") if records else None
-    return VerificationReport("PASS" if not errors else "FAIL", len(records), errors, last_hash)
+    return VerificationReport(
+        "PASS" if not errors else "FAIL",
+        len(records),
+        errors,
+        last_hash,
+        _hash_links(records),
+    )
+
+
+def _hash_links(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    links: list[dict[str, Any]] = []
+    for index, record in enumerate(records):
+        next_record = records[index + 1] if index + 1 < len(records) else None
+        links.append(
+            {
+                "sequence": record.get("sequence"),
+                "event_id": record.get("event_id"),
+                "previous_hash": record.get("previous_hash"),
+                "record_hash": record.get("record_hash"),
+                "next_hash": next_record.get("record_hash") if next_record else None,
+            }
+        )
+    return links

@@ -1,9 +1,9 @@
 # DRF + OMTIR Flight Recorder Trust Receipt v0.1
 
-Generated: 2026-06-04T09:58:12.538651Z
+Generated: 2026-06-04T18:15:13.156837Z
 WAL: wal\resilient-demo.jsonl
 Records: 6
-Last record hash: 8f80895ae6cea638d131af716c3eaaafadca9495bd863425ccfc081bba4aca28
+Last record hash: 8ad48e76f19e18ff08ec96952627767d4d8de7cc2ccf75fe7dc030b9db7d28e4
 
 ## Action Decisions
 
@@ -21,6 +21,14 @@ Last record hash: 8f80895ae6cea638d131af716c3eaaafadca9495bd863425ccfc081bba4aca
 - Status: PASS
 - Records checked: 6
 - Errors: []
+
+## Governance Consequences
+
+- Quarantined evidence excluded from confirmed claim set: evt_000003
+- Rejected hypotheses excluded from confirmed claim set: evt_000004
+- Confirmed claim events admitted: evt_000005
+- Pending human review events: evt_000006
+- Review queue: reports/resilient-demo-review-queue.jsonl
 
 ## Resilience Context
 

@@ -1,10 +1,56 @@
 {
+  "authority_trace": [
+    {
+      "authority": "DRF_RULE/delete_index",
+      "decision": "DENY",
+      "event_id": "evt_000001",
+      "event_type": "action",
+      "reason": "POLICY_MATCH"
+    },
+    {
+      "authority": "DRF_RULE/search_logs",
+      "decision": "ALLOW",
+      "event_id": "evt_000002",
+      "event_type": "action",
+      "reason": "POLICY_MATCH"
+    },
+    {
+      "authority": "DRF_RULE/parse_tool_result",
+      "decision": "ALLOW",
+      "event_id": "evt_000003",
+      "event_type": "action",
+      "reason": "POLICY_MATCH"
+    },
+    {
+      "authority": "OMTIR_RULE/confirmed_claim_requires_valid_structural_link",
+      "decision": "DENY",
+      "event_id": "evt_000004",
+      "event_type": "claim",
+      "reason": "STRUCTURAL_EVIDENCE_REQUIRED"
+    },
+    {
+      "authority": "OMTIR_RULE/confirmed_claim_requires_structural_evidence",
+      "decision": "ALLOW",
+      "event_id": "evt_000005",
+      "event_type": "claim",
+      "reason": "STRUCTURAL_EVIDENCE_PRESENT"
+    },
+    {
+      "authority": "DRF_RULE/restart_service",
+      "decision": "REQUEST_REVIEW",
+      "event_id": "evt_000006",
+      "event_type": "action",
+      "reason": "POLICY_MATCH"
+    }
+  ],
   "boundary": "This report records the local resilient demo verifier result and route/failure metadata. The live TrueFoundry evidence is the separate Request Trace screenshot showing the 429 rate-limit response. AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or all-agent safety.",
   "resilience": {
     "aws_bedrock": "NOT_USED",
+    "demo_mode": "REPLAYED_TRUEFOUNDRY_RATE_LIMIT_SCENARIO",
     "failure_introduced": "TrueFoundry AI Gateway rate limit",
     "first_request": "SUCCEEDED",
     "gateway_failure": "RATE_LIMIT_EXCEEDED",
+    "live_evidence": "separate_truefoundry_request_trace_screenshot_429",
     "model": "GEMINI_FLASH_LITE",
     "provider_route": "TRUEFOUNDRY_GATEWAY",
     "rate_limit_rule": "drf-omtir-resilience-rate-limit",
@@ -17,9 +63,54 @@
     ],
     "second_request": "RATE_LIMITED"
   },
+  "review_queue_path": "reports/resilient-demo-review-queue.jsonl",
   "verifier": {
     "errors": [],
-    "last_record_hash": "8f80895ae6cea638d131af716c3eaaafadca9495bd863425ccfc081bba4aca28",
+    "hash_links": [
+      {
+        "event_id": "evt_000001",
+        "next_hash": "4cf6a066fac6df1f2b985eb55c252fc065933d3cc572661ebf771f49c7220c51",
+        "previous_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "record_hash": "4be5ce02012173ca60042ba56101b093781e6b8b011753fba734982062370a92",
+        "sequence": 1
+      },
+      {
+        "event_id": "evt_000002",
+        "next_hash": "9fe5d9f33fa11a152926fef7f53ecce5099c1f790261446fe17962ace034f102",
+        "previous_hash": "4be5ce02012173ca60042ba56101b093781e6b8b011753fba734982062370a92",
+        "record_hash": "4cf6a066fac6df1f2b985eb55c252fc065933d3cc572661ebf771f49c7220c51",
+        "sequence": 2
+      },
+      {
+        "event_id": "evt_000003",
+        "next_hash": "1cca2a6eb1393823f657b35c08ea880899ca33b854d3d859aa4f8186679573b6",
+        "previous_hash": "4cf6a066fac6df1f2b985eb55c252fc065933d3cc572661ebf771f49c7220c51",
+        "record_hash": "9fe5d9f33fa11a152926fef7f53ecce5099c1f790261446fe17962ace034f102",
+        "sequence": 3
+      },
+      {
+        "event_id": "evt_000004",
+        "next_hash": "1f41e817e84d63bf54a24cfc9f5c0b36d8f5c2fc7fe673ae4bd0ab781dc25935",
+        "previous_hash": "9fe5d9f33fa11a152926fef7f53ecce5099c1f790261446fe17962ace034f102",
+        "record_hash": "1cca2a6eb1393823f657b35c08ea880899ca33b854d3d859aa4f8186679573b6",
+        "sequence": 4
+      },
+      {
+        "event_id": "evt_000005",
+        "next_hash": "8ad48e76f19e18ff08ec96952627767d4d8de7cc2ccf75fe7dc030b9db7d28e4",
+        "previous_hash": "1cca2a6eb1393823f657b35c08ea880899ca33b854d3d859aa4f8186679573b6",
+        "record_hash": "1f41e817e84d63bf54a24cfc9f5c0b36d8f5c2fc7fe673ae4bd0ab781dc25935",
+        "sequence": 5
+      },
+      {
+        "event_id": "evt_000006",
+        "next_hash": null,
+        "previous_hash": "1f41e817e84d63bf54a24cfc9f5c0b36d8f5c2fc7fe673ae4bd0ab781dc25935",
+        "record_hash": "8ad48e76f19e18ff08ec96952627767d4d8de7cc2ccf75fe7dc030b9db7d28e4",
+        "sequence": 6
+      }
+    ],
+    "last_record_hash": "8ad48e76f19e18ff08ec96952627767d4d8de7cc2ccf75fe7dc030b9db7d28e4",
     "records": 6,
     "status": "PASS",
     "verifier": "drf_omtir_flight_recorder_verifier"

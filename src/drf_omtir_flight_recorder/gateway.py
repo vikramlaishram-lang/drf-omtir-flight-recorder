@@ -65,6 +65,12 @@ class TypedGateway:
             "event_type": "action",
             "proposal": {"action": action, "arguments": arguments},
             "action_contract": self._rule_dict(rule),
+            "authority": self._authority(
+                "DRF_RULE",
+                rule.name if rule else "NO_POLICY_RULE",
+                decision.value,
+                reason,
+            ),
             "drf_decision": {
                 "decision": decision.value,
                 "allowed": decision == Decision.ALLOW,
@@ -135,6 +141,12 @@ class TypedGateway:
                     "evidence_event_id": evidence_event_id,
                 },
             },
+            "authority": self._authority(
+                "OMTIR_RULE",
+                self._claim_rule_name(requested_status, reason),
+                decision.value,
+                reason,
+            ),
             "omtir_decision": {
                 "decision": decision.value,
                 "admitted": admitted,
@@ -249,6 +261,26 @@ class TypedGateway:
             "required_evidence_lanes": [lane.value for lane in rule.required_evidence_lanes],
             "executable": rule.executable,
         }
+
+    def _authority(self, source: str, rule_name: str, decision: str, reason: str) -> dict[str, Any]:
+        return {
+            "source": source,
+            "rule": rule_name,
+            "origin": f"{source}/{rule_name}",
+            "policy_version": self.policy.version,
+            "decision": decision,
+            "reason": reason,
+        }
+
+    @staticmethod
+    def _claim_rule_name(requested_status: str, reason: str) -> str:
+        if requested_status not in {"HYPOTHESIS", "CONFIRMED"}:
+            return "valid_claim_status_required"
+        if requested_status == "CONFIRMED":
+            if reason == "STRUCTURAL_EVIDENCE_PRESENT":
+                return "confirmed_claim_requires_structural_evidence"
+            return "confirmed_claim_requires_valid_structural_link"
+        return "hypothesis_recording"
 
     @staticmethod
     def _evidence_packet(sources: list[EvidenceRef]) -> dict[str, Any]:

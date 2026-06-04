@@ -21,6 +21,7 @@ TRUEFOUNDRY_GATEWAY_RESILIENT_AGENT_AND_TRUST_RECEIPT_PASS
 - Command: `drf-omtir resilient-demo`
 - WAL: `wal/resilient-demo.jsonl`
 - Verifier report: `reports/resilient-demo-verifier-report.json`
+- Review queue: `reports/resilient-demo-review-queue.jsonl`
 - Trust Receipt: `receipts/resilient-demo-trust-receipt.md`
 - WAL records: 6
 - Verifier: PASS
@@ -33,7 +34,17 @@ TRUEFOUNDRY_GATEWAY_RESILIENT_AGENT_AND_TRUST_RECEIPT_PASS
 - unsupported_claim -> REJECTED_HYPOTHESIS
 - evidence_linked_claim -> CONFIRMED
 - risky_remediation -> REQUEST_REVIEW
+- authority_trace -> recorded
+- review_queue -> generated
 - trust_receipt -> generated
+
+## Governance Visibility
+
+- Authority source is recorded in the WAL for each governed event.
+- Example authority origins: `DRF_RULE/delete_index`, `DRF_RULE/restart_service`, and `OMTIR_RULE/confirmed_claim_requires_valid_structural_link`.
+- Verifier output exposes hash links for reviewer inspection: `previous_hash -> record_hash -> next_hash`.
+- The Trust Receipt explicitly excludes quarantined evidence and rejected hypotheses from the confirmed claim set.
+- `REQUEST_REVIEW` produces a local review artifact at `reports/resilient-demo-review-queue.jsonl`.
 
 ## Boundary
 

@@ -24,6 +24,15 @@ drf-omtir resilient-demo
 drf-omtir verify wal/resilient-demo.jsonl
 ```
 
+Point at the visible hash chain fields:
+
+```text
+previous_hash -> record_hash -> next_hash
+status: PASS
+records: 6
+errors: []
+```
+
 4. Run:
 
 ```bash
@@ -36,7 +45,16 @@ drf-omtir receipt wal/resilient-demo.jsonl
 receipts/resilient-demo-trust-receipt.md
 ```
 
-6. End with the boundary:
+6. Show the governance consequences:
+
+```text
+Quarantined evidence excluded from confirmed claim set
+Rejected hypotheses excluded from confirmed claim set
+Pending human review events
+Review queue: reports/resilient-demo-review-queue.jsonl
+```
+
+7. End with the boundary:
 
 ```text
 AWS Bedrock was not used in this bounded run.

@@ -29,8 +29,45 @@ def _resilience_context(records: list[dict[str, Any]]) -> dict[str, Any]:
     return {}
 
 
+def _governance_consequences(records: list[dict[str, Any]], root: Path) -> dict[str, Any]:
+    quarantined_events: list[str] = []
+    rejected_claim_events: list[str] = []
+    confirmed_claim_events: list[str] = []
+    pending_review_events: list[str] = []
+
+    for record in records:
+        payload = record.get("payload", {})
+        event_id = str(payload.get("event_id", record.get("event_id", "")))
+        evidence_packet = payload.get("evidence_packet") or {}
+        if evidence_packet.get("has_quarantined"):
+            quarantined_events.append(event_id)
+
+        claim = payload.get("claim") or {}
+        status = claim.get("status")
+        if status == "REJECTED_HYPOTHESIS":
+            rejected_claim_events.append(event_id)
+        elif status == "CONFIRMED":
+            confirmed_claim_events.append(event_id)
+
+        drf = payload.get("drf_decision") or {}
+        if drf.get("decision") == "REQUEST_REVIEW":
+            pending_review_events.append(event_id)
+
+    excluded = sorted(set(quarantined_events + rejected_claim_events))
+    review_queue = root / "reports" / "resilient-demo-review-queue.jsonl"
+    return {
+        "quarantined_events": quarantined_events,
+        "rejected_claim_events": rejected_claim_events,
+        "confirmed_claim_events": confirmed_claim_events,
+        "pending_review_events": pending_review_events,
+        "excluded_from_confirmed_claim_set": excluded,
+        "review_queue_path": review_queue.relative_to(root).as_posix() if review_queue.exists() else None,
+    }
+
+
 def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str, Any]:
     wal_path = Path(path)
+    root_path = Path(root).resolve()
     records = [
         json.loads(line)
         for line in wal_path.read_text(encoding="utf-8").splitlines()
@@ -58,13 +95,19 @@ def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str
         "claim_statuses": claims,
         "verifier": verifier.to_dict(),
         "resilience": _resilience_context(records),
+        "governance_consequences": _governance_consequences(records, root_path),
         "boundary": BOUNDARY,
     }
+
+
+def _join_events(events: list[str]) -> str:
+    return ", ".join(events) if events else "none"
 
 
 def render_markdown(receipt: dict[str, Any]) -> str:
     verifier = receipt["verifier"]
     resilience = receipt.get("resilience") or {}
+    consequences = receipt.get("governance_consequences") or {}
     lines = [
             "# DRF + OMTIR Flight Recorder Trust Receipt v0.1",
             "",
@@ -86,6 +129,18 @@ def render_markdown(receipt: dict[str, Any]) -> str:
             f"- Status: {verifier['status']}",
             f"- Records checked: {verifier['records']}",
             f"- Errors: {json.dumps(verifier['errors'])}",
+            "",
+            "## Governance Consequences",
+            "",
+            "- Quarantined evidence excluded from confirmed claim set: "
+            f"{_join_events(consequences.get('quarantined_events', []))}",
+            "- Rejected hypotheses excluded from confirmed claim set: "
+            f"{_join_events(consequences.get('rejected_claim_events', []))}",
+            "- Confirmed claim events admitted: "
+            f"{_join_events(consequences.get('confirmed_claim_events', []))}",
+            "- Pending human review events: "
+            f"{_join_events(consequences.get('pending_review_events', []))}",
+            f"- Review queue: {consequences.get('review_queue_path') or 'none'}",
             "",
     ]
     if resilience:

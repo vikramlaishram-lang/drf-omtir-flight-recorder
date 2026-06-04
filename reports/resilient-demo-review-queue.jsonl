@@ -1,0 +1,1 @@
+{"action": "restart_service", "adapted_from_event_id": "evt_000005", "boundary": "This is a local review stub for the bounded resilient-demo run.", "decision": "REQUEST_REVIEW", "event_id": "evt_000006", "queue_version": "drf_omtir_review_queue.v0.1", "reason": "POLICY_MATCH", "reviewer": "human_reviewer_required", "status": "PENDING_HUMAN_REVIEW"}

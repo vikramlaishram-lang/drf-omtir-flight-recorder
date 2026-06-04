@@ -188,6 +188,8 @@ def _resilience_context(provider_route: str, model: str) -> dict[str, Any]:
         "rate_limit_rule": "drf-omtir-resilience-rate-limit",
         "first_request": "SUCCEEDED",
         "second_request": "RATE_LIMITED",
+        "demo_mode": "REPLAYED_TRUEFOUNDRY_RATE_LIMIT_SCENARIO",
+        "live_evidence": "separate_truefoundry_request_trace_screenshot_429",
         "recovery_path": [
             "unsafe_action_denied",
             "weak_result_quarantined",
@@ -196,6 +198,43 @@ def _resilience_context(provider_route: str, model: str) -> dict[str, Any]:
             "risky_remediation_routed_to_review",
         ],
     }
+
+
+def _authority_trace(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    trace: list[dict[str, Any]] = []
+    for record in records:
+        payload = record.get("payload", {})
+        authority = payload.get("authority")
+        if not isinstance(authority, dict):
+            continue
+        trace.append(
+            {
+                "event_id": payload.get("event_id"),
+                "event_type": payload.get("event_type"),
+                "authority": authority.get("origin"),
+                "decision": authority.get("decision"),
+                "reason": authority.get("reason"),
+            }
+        )
+    return trace
+
+
+def _write_review_queue(root: Path, review: dict[str, Any], adapted_from_event_id: str | None) -> Path:
+    review_queue_path = root / "reports" / "resilient-demo-review-queue.jsonl"
+    review_queue_path.parent.mkdir(parents=True, exist_ok=True)
+    review_item = {
+        "queue_version": "drf_omtir_review_queue.v0.1",
+        "event_id": review["event_id"],
+        "action": "restart_service",
+        "decision": review["decision"],
+        "reason": review["reason"],
+        "status": "PENDING_HUMAN_REVIEW",
+        "reviewer": "human_reviewer_required",
+        "adapted_from_event_id": adapted_from_event_id,
+        "boundary": "This is a local review stub for the bounded resilient-demo run.",
+    }
+    review_queue_path.write_text(json.dumps(review_item, sort_keys=True) + "\n", encoding="utf-8")
+    return review_queue_path
 
 
 def run_demo(root: str | Path = ".", policy_path: str | Path | None = None) -> dict[str, Any]:
@@ -339,12 +378,16 @@ def run_resilient_demo(
         evidence=[structural_evidence],
         adapted_from_event_id=linked["event_id"],
     )
+    review_queue_path = _write_review_queue(root_path, review, linked["event_id"])
+    authority_trace = _authority_trace(wal.read())
 
     verifier = verify_wal(wal_path, root=root_path)
     report_path = root_path / "reports" / "resilient-demo-verifier-report.json"
     report = {
         "verifier": verifier.to_dict(),
         "resilience": resilience,
+        "authority_trace": authority_trace,
+        "review_queue_path": review_queue_path.relative_to(root_path).as_posix(),
         "boundary": (
             "This report records the local resilient demo verifier result and route/failure metadata. "
             "The live TrueFoundry evidence is the separate Request Trace screenshot showing the 429 "
@@ -370,6 +413,8 @@ def run_resilient_demo(
         "second_request": resilience["second_request"],
         "aws_bedrock": resilience["aws_bedrock"],
         "aws_bedrock_used": False,
+        "authority_trace": authority_trace,
+        "review_queue_path": review_queue_path.relative_to(root_path).as_posix(),
         "events": {
             "unsafe_action": unsafe["event_id"],
             "read_only_tool": read_only["event_id"],
@@ -399,6 +444,8 @@ def run_resilient_demo(
         "unsupported_claim_REJECTED_HYPOTHESIS": unsupported["status"] == "REJECTED_HYPOTHESIS",
         "evidence_linked_claim_CONFIRMED": linked["status"] == "CONFIRMED",
         "risky_remediation_REQUEST_REVIEW": review["decision"] == "REQUEST_REVIEW" and not review["executed"],
+        "authority_trace_recorded": len(authority_trace) == 6,
+        "review_queue_generated": review_queue_path.exists(),
         "wal_records": verifier.records == 6,
         "verifier_PASS": verifier.status == "PASS",
         "trust_receipt_generated": receipt_path.exists(),
@@ -420,6 +467,7 @@ def run_resilient_demo(
         "wal_path": str(wal_path),
         "verifier_report_path": str(report_path),
         "trust_receipt_path": str(receipt_path),
+        "review_queue_path": str(review_queue_path),
         "trace_path": str(trace_path),
         "boundary": (
             "This local resilient demo validates one bounded DRF + OMTIR recovery sequence with "

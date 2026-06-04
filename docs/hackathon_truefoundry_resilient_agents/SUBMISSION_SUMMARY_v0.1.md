@@ -30,10 +30,14 @@ bad_tool_result       -> QUARANTINED
 unsupported_claim     -> REJECTED_HYPOTHESIS
 evidence_linked_claim -> CONFIRMED
 risky_remediation     -> REQUEST_REVIEW
+authority_trace       -> recorded
+review_queue          -> generated
 trust_receipt         -> generated
 ```
 
 The agent does not keep working by blindly continuing. It keeps working by narrowing authority, rejecting unsupported claims, routing risky actions to review, and producing a verifiable Trust Receipt.
+
+The trace now makes the authority hierarchy explicit: every governed event includes an authority origin such as `DRF_RULE/delete_index` or `OMTIR_RULE/confirmed_claim_requires_valid_structural_link`. The Trust Receipt also records the downstream consequence of governance states: quarantined evidence and rejected hypotheses are excluded from the confirmed claim set, and the risky remediation event is written to a local human-review queue.
 
 ## Final User Experience
 
@@ -52,10 +56,20 @@ The expected result is a six-record WAL, verifier PASS, and a Trust Receipt that
 - `wal/resilient-demo.jsonl`
 - `reports/resilient-demo-verifier-report.json`
 - `reports/resilient-demo-trace.json`
+- `reports/resilient-demo-review-queue.jsonl`
 - `receipts/resilient-demo-trust-receipt.md`
 - `examples/resilient-demo-search-logs-result.json`
 - `examples/resilient-demo-quarantined-tool-result.json`
 - TrueFoundry Request Trace screenshot showing the HTTP 429 rate-limit response
+
+The verifier report includes visible hash-chain links for reviewer inspection:
+
+```text
+previous_hash -> record_hash -> next_hash
+status: PASS
+records: 6
+errors: []
+```
 
 ## Boundary
 

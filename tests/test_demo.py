@@ -23,6 +23,12 @@ class DemoTest(unittest.TestCase):
             report = verify_wal(wal_path, root=tmp)
             self.assertEqual(report.status, "PASS")
             self.assertEqual(report.records, 5)
+            self.assertEqual(len(report.hash_links or []), 5)
+            first_link = (report.hash_links or [])[0]
+            self.assertEqual(first_link["sequence"], 1)
+            self.assertEqual(first_link["previous_hash"], "0" * 64)
+            self.assertIsNotNone(first_link["record_hash"])
+            self.assertIsNotNone(first_link["next_hash"])
 
     def test_tampered_wal_fails_verification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -57,19 +63,31 @@ class DemoTest(unittest.TestCase):
             self.assertTrue(wal_path.exists())
             self.assertTrue(receipt_path.exists())
             self.assertTrue(trace_path.exists())
+            self.assertTrue(Path(summary["review_queue_path"]).exists())
+            self.assertTrue(checks["authority_trace_recorded"])
+            self.assertTrue(checks["review_queue_generated"])
             wal_text = wal_path.read_text(encoding="utf-8")
             self.assertIn("RATE_LIMIT_EXCEEDED", wal_text)
             self.assertIn("drf-omtir-resilience-rate-limit", wal_text)
             self.assertIn("NOT_USED", wal_text)
+            self.assertIn("DRF_RULE/delete_index", wal_text)
+            self.assertIn("OMTIR_RULE/confirmed_claim_requires_valid_structural_link", wal_text)
             receipt_text = receipt_path.read_text(encoding="utf-8")
             self.assertIn("TrueFoundry AI Gateway rate limit", receipt_text)
             self.assertIn("AWS Bedrock: NOT_USED", receipt_text)
+            self.assertIn("Quarantined evidence excluded from confirmed claim set", receipt_text)
+            self.assertIn("Rejected hypotheses excluded from confirmed claim set", receipt_text)
+            self.assertIn("Review queue: reports/resilient-demo-review-queue.jsonl", receipt_text)
             trace = json.loads(trace_path.read_text(encoding="utf-8"))
             self.assertEqual(trace["gateway_failure"], "RATE_LIMIT_EXCEEDED")
             self.assertEqual(trace["rate_limit_rule"], "drf-omtir-resilience-rate-limit")
+            self.assertEqual(len(trace["authority_trace"]), 6)
+            self.assertEqual(trace["review_queue_path"], "reports/resilient-demo-review-queue.jsonl")
             report = verify_wal(wal_path, root=tmp)
             self.assertEqual(report.status, "PASS")
             self.assertEqual(report.records, 6)
+            self.assertEqual(len(report.hash_links or []), 6)
+            self.assertIsNone((report.hash_links or [])[-1]["next_hash"])
 
 
 if __name__ == "__main__":
