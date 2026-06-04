@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .core import init_workspace, run_demo
+from .core import init_workspace, run_demo, run_resilient_demo
 from .proxy import run_stdio_proxy
 from .receipt import write_trust_receipt
 from .verifier import verify_wal
@@ -30,6 +30,34 @@ def _print_demo(summary: dict[str, object]) -> None:
     print(f"Trust Receipt: {summary['trust_receipt_path']}")
 
 
+def _print_resilient_demo(summary: dict[str, object]) -> None:
+    checks = summary["checks"]
+    assert isinstance(checks, dict)
+    print("DRF + OMTIR Resilient Agent Trial v0.1")
+    print(f"Status: {summary['Status']}")
+    print(f"provider_route              -> {summary['provider_route']}")
+    print(f"model                       -> {summary['model']}")
+    print(f"aws_bedrock                 -> {summary['aws_bedrock']}")
+    print(f"gateway_failure             -> {summary['gateway_failure']}")
+    print(f"rate_limit_rule             -> {summary['rate_limit_rule']}")
+    print(f"first_request               -> {summary['first_request']}")
+    print(f"second_request              -> {summary['second_request']}")
+    print(f"unsafe_action               -> {'DENY' if checks['unsafe_action_DENY'] else 'FAIL'}")
+    print(f"read_only_tool              -> {'ALLOW' if checks['read_only_tool_ALLOW'] else 'FAIL'}")
+    print(f"bad_tool_result             -> {'QUARANTINED' if checks['bad_tool_result_QUARANTINED'] else 'FAIL'}")
+    print(
+        "unsupported_claim           -> "
+        f"{'REJECTED_HYPOTHESIS' if checks['unsupported_claim_REJECTED_HYPOTHESIS'] else 'FAIL'}"
+    )
+    print(f"evidence_linked_claim       -> {'CONFIRMED' if checks['evidence_linked_claim_CONFIRMED'] else 'FAIL'}")
+    print(f"risky_remediation           -> {'REQUEST_REVIEW' if checks['risky_remediation_REQUEST_REVIEW'] else 'FAIL'}")
+    print(f"WAL records                 -> {summary['wal_records'] if checks['wal_records'] else 'FAIL'}")
+    print(f"verifier                    -> {summary['verifier_status'] if checks['verifier_PASS'] else 'FAIL'}")
+    print(f"trust_receipt               -> {'generated' if checks['trust_receipt_generated'] else 'FAIL'}")
+    print(f"WAL: {summary['wal_path']}")
+    print(f"Trust Receipt: {summary['trust_receipt_path']}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="drf-omtir")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -41,6 +69,11 @@ def main(argv: list[str] | None = None) -> int:
     demo_parser = subparsers.add_parser("demo")
     demo_parser.add_argument("--root", default=".")
     demo_parser.add_argument("--policy")
+
+    resilient_parser = subparsers.add_parser("resilient-demo")
+    resilient_parser.add_argument("--root", default=".")
+    resilient_parser.add_argument("--provider-route", default="TRUEFOUNDRY_GATEWAY")
+    resilient_parser.add_argument("--model", default="GEMINI_FLASH_LITE")
 
     verify_parser = subparsers.add_parser("verify")
     verify_parser.add_argument("wal")
@@ -66,6 +99,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "demo":
         summary = run_demo(args.root, args.policy)
         _print_demo(summary)
+        return 0 if summary["Status"] == "PASS" else 1
+
+    if args.command == "resilient-demo":
+        summary = run_resilient_demo(args.root, provider_route=args.provider_route, model=args.model)
+        _print_resilient_demo(summary)
         return 0 if summary["Status"] == "PASS" else 1
 
     if args.command == "verify":
@@ -98,3 +136,7 @@ class PolicyWalPath:
     def default(policy_path: str) -> str:
         policy_root = Path(policy_path).resolve().parent
         return str(policy_root / "wal" / "proxy.jsonl")
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

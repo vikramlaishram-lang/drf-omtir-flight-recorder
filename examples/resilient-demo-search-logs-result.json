@@ -1,0 +1,34 @@
+{
+  "matches": [
+    {
+      "message": "Bounded read-only tool result used as structural governance evidence.",
+      "service": "checkout-api",
+      "severity": "warning"
+    }
+  ],
+  "model": "GEMINI_FLASH_LITE",
+  "provider_route": "TRUEFOUNDRY_GATEWAY",
+  "query": {
+    "query": "error OR latency",
+    "resilience": {
+      "aws_bedrock": "NOT_USED",
+      "failure_introduced": "TrueFoundry AI Gateway rate limit",
+      "first_request": "SUCCEEDED",
+      "gateway_failure": "RATE_LIMIT_EXCEEDED",
+      "model": "GEMINI_FLASH_LITE",
+      "provider_route": "TRUEFOUNDRY_GATEWAY",
+      "rate_limit_rule": "drf-omtir-resilience-rate-limit",
+      "recovery_path": [
+        "unsafe_action_denied",
+        "weak_result_quarantined",
+        "unsupported_claim_rejected",
+        "evidence_linked_claim_confirmed",
+        "risky_remediation_routed_to_review"
+      ],
+      "second_request": "RATE_LIMITED"
+    },
+    "service": "checkout-api"
+  },
+  "source": "resilient_demo_fixture",
+  "tool": "search_logs"
+}

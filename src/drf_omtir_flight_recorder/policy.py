@@ -34,6 +34,10 @@ class Policy:
     @classmethod
     def load(cls, path: str | Path) -> "Policy":
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls.from_dict(raw)
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "Policy":
         rules = [
             ActionRule(
                 name=item["name"],

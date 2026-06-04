@@ -15,6 +15,20 @@ BOUNDARY = (
 )
 
 
+def _resilience_context(records: list[dict[str, Any]]) -> dict[str, Any]:
+    for record in records:
+        arguments = (
+            record.get("payload", {})
+            .get("proposal", {})
+            .get("arguments", {})
+        )
+        if isinstance(arguments, dict):
+            resilience = arguments.get("resilience")
+            if isinstance(resilience, dict):
+                return resilience
+    return {}
+
+
 def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str, Any]:
     wal_path = Path(path)
     records = [
@@ -43,14 +57,15 @@ def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str
         "action_decisions": decisions,
         "claim_statuses": claims,
         "verifier": verifier.to_dict(),
+        "resilience": _resilience_context(records),
         "boundary": BOUNDARY,
     }
 
 
 def render_markdown(receipt: dict[str, Any]) -> str:
     verifier = receipt["verifier"]
-    return "\n".join(
-        [
+    resilience = receipt.get("resilience") or {}
+    lines = [
             "# DRF + OMTIR Flight Recorder Trust Receipt v0.1",
             "",
             f"Generated: {receipt['generated_at']}",
@@ -72,12 +87,33 @@ def render_markdown(receipt: dict[str, Any]) -> str:
             f"- Records checked: {verifier['records']}",
             f"- Errors: {json.dumps(verifier['errors'])}",
             "",
+    ]
+    if resilience:
+        lines.extend(
+            [
+                "## Resilience Context",
+                "",
+                f"- Failure introduced: {resilience.get('failure_introduced', resilience.get('gateway_failure'))}",
+                f"- Gateway failure: {resilience.get('gateway_failure')}",
+                f"- Rate-limit rule: {resilience.get('rate_limit_rule')}",
+                f"- Model route: {resilience.get('provider_route')} -> {resilience.get('model')}",
+                f"- AWS Bedrock: {resilience.get('aws_bedrock')}",
+                f"- First request: {resilience.get('first_request')}",
+                f"- Second request: {resilience.get('second_request')}",
+                "- Recovery path: unsafe action denied, weak result quarantined, "
+                "unsupported claim rejected, evidence-linked claim confirmed, risky remediation routed to review.",
+                "",
+            ]
+        )
+    lines.extend(
+        [
             "## Boundary",
             "",
             receipt["boundary"],
             "",
         ]
     )
+    return "\n".join(lines)
 
 
 def write_trust_receipt(path: str | Path, output: str | Path, *, root: str | Path = ".") -> dict[str, Any]:

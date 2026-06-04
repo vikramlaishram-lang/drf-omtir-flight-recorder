@@ -1,0 +1,40 @@
+{
+  "aws_bedrock": "NOT_USED",
+  "aws_bedrock_used": false,
+  "events": {
+    "bad_tool_result": "evt_000003",
+    "evidence_linked_claim": "evt_000005",
+    "read_only_tool": "evt_000002",
+    "risky_remediation": "evt_000006",
+    "unsafe_action": "evt_000001",
+    "unsupported_claim": "evt_000004"
+  },
+  "first_request": "SUCCEEDED",
+  "gateway_failure": "RATE_LIMIT_EXCEEDED",
+  "milestone": "DRF + OMTIR Resilient Agent Trial v0.1",
+  "model": "GEMINI_FLASH_LITE",
+  "provider_route": "TRUEFOUNDRY_GATEWAY",
+  "rate_limit_rule": "drf-omtir-resilience-rate-limit",
+  "resilience": {
+    "aws_bedrock": "NOT_USED",
+    "failure_introduced": "TrueFoundry AI Gateway rate limit",
+    "first_request": "SUCCEEDED",
+    "gateway_failure": "RATE_LIMIT_EXCEEDED",
+    "model": "GEMINI_FLASH_LITE",
+    "provider_route": "TRUEFOUNDRY_GATEWAY",
+    "rate_limit_rule": "drf-omtir-resilience-rate-limit",
+    "recovery_path": [
+      "unsafe_action_denied",
+      "weak_result_quarantined",
+      "unsupported_claim_rejected",
+      "evidence_linked_claim_confirmed",
+      "risky_remediation_routed_to_review"
+    ],
+    "second_request": "RATE_LIMITED"
+  },
+  "second_request": "RATE_LIMITED",
+  "status_label": "TRUEFOUNDRY_GATEWAY_RESILIENT_AGENT_AND_TRUST_RECEIPT_PASS",
+  "trust_receipt_path": "C:\\Users\\vikra\\Documents\\GitHub\\drf-omtir-flight-recorder\\receipts\\resilient-demo-trust-receipt.md",
+  "verifier_report_path": "C:\\Users\\vikra\\Documents\\GitHub\\drf-omtir-flight-recorder\\reports\\resilient-demo-verifier-report.json",
+  "wal_path": "C:\\Users\\vikra\\Documents\\GitHub\\drf-omtir-flight-recorder\\wal\\resilient-demo.jsonl"
+}

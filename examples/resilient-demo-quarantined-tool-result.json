@@ -1,0 +1,9 @@
+{
+  "raw_result": {
+    "groups": []
+  },
+  "reason": "Tool output is insufficient for CONFIRMED root-cause promotion.",
+  "source": "resilient_demo_fixture",
+  "status": "malformed_or_empty",
+  "tool": "parse_tool_result"
+}

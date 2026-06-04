@@ -12,6 +12,7 @@ It is not a new agent, hosted service, dashboard, or enterprise RBAC layer. The 
 drf-omtir init
 drf-omtir wrap --policy drf-omtir.yaml -- mcp-server-command
 drf-omtir demo
+drf-omtir resilient-demo
 drf-omtir verify wal/demo.jsonl
 drf-omtir receipt wal/demo.jsonl
 ```
@@ -59,6 +60,50 @@ reports/demo-verifier-report.json
 receipts/demo-trust-receipt.md
 examples/demo-search-logs-result.json
 ```
+
+## Resilient Agent Demo
+
+The resilient demo records a bounded recovery story using TrueFoundry Gateway route metadata and an explicit rate-limit failure marker.
+
+Run:
+
+```bash
+drf-omtir resilient-demo
+```
+
+Expected:
+
+```text
+provider_route              -> TRUEFOUNDRY_GATEWAY
+model                       -> GEMINI_FLASH_LITE
+aws_bedrock                 -> NOT_USED
+gateway_failure             -> RATE_LIMIT_EXCEEDED
+rate_limit_rule             -> drf-omtir-resilience-rate-limit
+first_request               -> SUCCEEDED
+second_request              -> RATE_LIMITED
+unsafe_action               -> DENY
+read_only_tool              -> ALLOW
+bad_tool_result             -> QUARANTINED
+unsupported_claim           -> REJECTED_HYPOTHESIS
+evidence_linked_claim       -> CONFIRMED
+risky_remediation           -> REQUEST_REVIEW
+WAL records                 -> 6
+verifier                    -> PASS
+trust_receipt               -> generated
+```
+
+The resilient demo writes:
+
+```text
+wal/resilient-demo.jsonl
+reports/resilient-demo-verifier-report.json
+reports/resilient-demo-trace.json
+receipts/resilient-demo-trust-receipt.md
+examples/resilient-demo-search-logs-result.json
+examples/resilient-demo-quarantined-tool-result.json
+```
+
+Boundary: this local resilient demo validates one bounded DRF + OMTIR recovery sequence with TrueFoundry AI Gateway and Gemini Flash Lite recorded as the model route, including a rate-limit recovery marker. It does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or a live TrueFoundry network preflight by itself.
 
 ## Verify And Generate Receipt
 

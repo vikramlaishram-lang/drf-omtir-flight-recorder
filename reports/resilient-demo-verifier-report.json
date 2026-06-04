@@ -1,0 +1,27 @@
+{
+  "boundary": "This report records the local resilient demo verifier result and route/failure metadata. It does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or a live TrueFoundry network preflight by itself.",
+  "resilience": {
+    "aws_bedrock": "NOT_USED",
+    "failure_introduced": "TrueFoundry AI Gateway rate limit",
+    "first_request": "SUCCEEDED",
+    "gateway_failure": "RATE_LIMIT_EXCEEDED",
+    "model": "GEMINI_FLASH_LITE",
+    "provider_route": "TRUEFOUNDRY_GATEWAY",
+    "rate_limit_rule": "drf-omtir-resilience-rate-limit",
+    "recovery_path": [
+      "unsafe_action_denied",
+      "weak_result_quarantined",
+      "unsupported_claim_rejected",
+      "evidence_linked_claim_confirmed",
+      "risky_remediation_routed_to_review"
+    ],
+    "second_request": "RATE_LIMITED"
+  },
+  "verifier": {
+    "errors": [],
+    "last_record_hash": "c4948e138432bd9d50d0a98534a9e977f1763898f1cced27ec0487957fd426ec",
+    "records": 6,
+    "status": "PASS",
+    "verifier": "drf_omtir_flight_recorder_verifier"
+  }
+}
