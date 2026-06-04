@@ -100,8 +100,12 @@ def render_markdown(receipt: dict[str, Any]) -> str:
                 f"- AWS Bedrock: {resilience.get('aws_bedrock')}",
                 f"- First request: {resilience.get('first_request')}",
                 f"- Second request: {resilience.get('second_request')}",
+                "- TrueFoundry evidence: separate Request Trace screenshot showing the 429 rate-limit response.",
                 "- Recovery path: unsafe action denied, weak result quarantined, "
                 "unsupported claim rejected, evidence-linked claim confirmed, risky remediation routed to review.",
+                "- Boundary: AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock "
+                "validation, production reliability, universal failure recovery, enterprise certification, "
+                "or all-agent safety.",
                 "",
             ]
         )

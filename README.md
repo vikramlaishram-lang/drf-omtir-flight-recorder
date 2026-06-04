@@ -65,6 +65,8 @@ examples/demo-search-logs-result.json
 
 The resilient demo records a bounded recovery story using TrueFoundry Gateway route metadata and an explicit rate-limit failure marker.
 
+The local resilient-demo records the TrueFoundry/Gemini route metadata and the captured rate-limit failure marker. The live TrueFoundry evidence is the separate Request Trace screenshot showing the 429 rate-limit response.
+
 Run:
 
 ```bash
@@ -103,7 +105,7 @@ examples/resilient-demo-search-logs-result.json
 examples/resilient-demo-quarantined-tool-result.json
 ```
 
-Boundary: this local resilient demo validates one bounded DRF + OMTIR recovery sequence with TrueFoundry AI Gateway and Gemini Flash Lite recorded as the model route, including a rate-limit recovery marker. It does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or a live TrueFoundry network preflight by itself.
+Boundary: this local resilient demo validates one bounded DRF + OMTIR recovery sequence with TrueFoundry AI Gateway and Gemini Flash Lite recorded as the model route, including a rate-limit recovery marker. The live TrueFoundry evidence is the separate Request Trace screenshot showing the 429 rate-limit response. AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or all-agent safety.
 
 ## Verify And Generate Receipt
 

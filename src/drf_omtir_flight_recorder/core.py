@@ -347,8 +347,10 @@ def run_resilient_demo(
         "resilience": resilience,
         "boundary": (
             "This report records the local resilient demo verifier result and route/failure metadata. "
-            "It does not claim AWS Bedrock validation, production reliability, universal failure recovery, "
-            "enterprise certification, or a live TrueFoundry network preflight by itself."
+            "The live TrueFoundry evidence is the separate Request Trace screenshot showing the 429 "
+            "rate-limit response. AWS Bedrock was not used in this bounded run. This does not claim "
+            "AWS Bedrock validation, production reliability, universal failure recovery, enterprise "
+            "certification, or all-agent safety."
         ),
     }
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
@@ -421,8 +423,10 @@ def run_resilient_demo(
         "trace_path": str(trace_path),
         "boundary": (
             "This local resilient demo validates one bounded DRF + OMTIR recovery sequence with "
-            "TrueFoundry AI Gateway and Gemini Flash Lite recorded as the model route. It does not "
-            "claim AWS Bedrock validation, production reliability, universal failure recovery, "
-            "enterprise certification, or a live TrueFoundry network preflight by itself."
+            "TrueFoundry AI Gateway and Gemini Flash Lite recorded as the model route. The live "
+            "TrueFoundry evidence is the separate Request Trace screenshot showing the 429 rate-limit "
+            "response. AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock "
+            "validation, production reliability, universal failure recovery, enterprise certification, "
+            "or all-agent safety."
         ),
     }

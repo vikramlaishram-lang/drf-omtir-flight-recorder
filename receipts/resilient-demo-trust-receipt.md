@@ -1,9 +1,9 @@
 # DRF + OMTIR Flight Recorder Trust Receipt v0.1
 
-Generated: 2026-06-04T08:52:42.769744Z
+Generated: 2026-06-04T09:58:12.538651Z
 WAL: wal\resilient-demo.jsonl
 Records: 6
-Last record hash: c4948e138432bd9d50d0a98534a9e977f1763898f1cced27ec0487957fd426ec
+Last record hash: 8f80895ae6cea638d131af716c3eaaafadca9495bd863425ccfc081bba4aca28
 
 ## Action Decisions
 
@@ -31,7 +31,9 @@ Last record hash: c4948e138432bd9d50d0a98534a9e977f1763898f1cced27ec0487957fd426
 - AWS Bedrock: NOT_USED
 - First request: SUCCEEDED
 - Second request: RATE_LIMITED
+- TrueFoundry evidence: separate Request Trace screenshot showing the 429 rate-limit response.
 - Recovery path: unsafe action denied, weak result quarantined, unsupported claim rejected, evidence-linked claim confirmed, risky remediation routed to review.
+- Boundary: AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock validation, production reliability, universal failure recovery, enterprise certification, or all-agent safety.
 
 ## Boundary
 
