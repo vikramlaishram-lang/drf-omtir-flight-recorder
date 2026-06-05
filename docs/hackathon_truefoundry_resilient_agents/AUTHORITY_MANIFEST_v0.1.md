@@ -17,7 +17,12 @@ This manifest describes the local DRF + OMTIR Flight Recorder resilient-demo aut
 
 2. DRF action authority
    - Source: DRF_RULE
-   - Policy source: drf-omtir.yaml and built-in demo policy rules
+   - Policy source: DEFAULT_POLICY packaged with drf_omtir_flight_recorder
+   - Policy source note: resilient-demo v0.1.3 uses DEFAULT_POLICY packaged with
+     drf_omtir_flight_recorder. The external drf-omtir.yaml is generated for
+     local workspace configuration and future proxy use, but is not read at
+     runtime by the resilient-demo command. This was confirmed by policy
+     mutation test on 2026-06-05.
    - Function: decide ALLOW, DENY, or REQUEST_REVIEW for proposed actions
 
 3. Typed tool execution
@@ -49,12 +54,12 @@ This manifest describes the local DRF + OMTIR Flight Recorder resilient-demo aut
 
 | Event | Proposed item | Authority origin | Decision / status | Rule source |
 | --- | --- | --- | --- | --- |
-| evt_000001 | delete_index | DRF_RULE/delete_index | DENY | drf-omtir.yaml |
-| evt_000002 | search_logs | DRF_RULE/search_logs | ALLOW | drf-omtir.yaml |
-| evt_000003 | parse_tool_result | DRF_RULE/parse_tool_result | ALLOW, QUARANTINED evidence | built-in demo policy |
-| evt_000004 | unsupported confirmed claim | OMTIR_RULE/confirmed_claim_requires_valid_structural_link | REJECTED_HYPOTHESIS | OMTIR claim admission rule |
-| evt_000005 | evidence-linked confirmed claim | OMTIR_RULE/confirmed_claim_requires_structural_evidence | CONFIRMED | OMTIR claim admission rule |
-| evt_000006 | restart_service | DRF_RULE/restart_service | REQUEST_REVIEW | drf-omtir.yaml |
+| evt_000001 | delete_index | DRF_RULE/delete_index | DENY | DEFAULT_POLICY (package built-in) |
+| evt_000002 | search_logs | DRF_RULE/search_logs | ALLOW | DEFAULT_POLICY (package built-in) |
+| evt_000003 | parse_tool_result | DRF_RULE/parse_tool_result | ALLOW, QUARANTINED evidence | DEFAULT_POLICY (package built-in) |
+| evt_000004 | unsupported confirmed claim | OMTIR_RULE/confirmed_claim_requires_valid_structural_link | REJECTED_HYPOTHESIS | OMTIR_RULE (package built-in claim admission) |
+| evt_000005 | evidence-linked confirmed claim | OMTIR_RULE/confirmed_claim_requires_structural_evidence | CONFIRMED | OMTIR_RULE (package built-in claim admission) |
+| evt_000006 | restart_service | DRF_RULE/restart_service | REQUEST_REVIEW | DEFAULT_POLICY (package built-in) |
 
 ## Reviewer Path
 
