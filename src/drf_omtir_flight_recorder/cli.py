@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .core import init_workspace, run_demo, run_resilient_demo
+from .core import init_workspace, run_demo, run_resilient_demo, run_live_proposal_demo
 from .proxy import run_stdio_proxy
 from .receipt import write_trust_receipt
 from .verifier import verify_wal
@@ -61,6 +61,36 @@ def _print_resilient_demo(summary: dict[str, object]) -> None:
     print(f"Trust Receipt: {summary['trust_receipt_path']}")
 
 
+def _print_live_proposal_demo(summary: dict[str, object]) -> None:
+    print("DRF + OMTIR Live Proposal Trial v0.2")
+    print(f"Status: {summary['Status']}")
+    if summary["Status"] != "PASS":
+        print(f"reason                      -> {summary.get('reason')}")
+        if "missing" in summary:
+            print(f"missing                     -> {summary['missing']}")
+        if "error" in summary:
+            print(f"error                       -> {summary['error']}")
+        return
+    print(f"provider_route              -> {summary['provider_route']}")
+    print(f"model                       -> {summary['model']}")
+    print(f"agent_proposal_source       -> {summary['agent_proposal_source']}")
+    print(f"policy_evaluation           -> {summary['policy_evaluation']}")
+    print(f"raw_model_output_sha256     -> {summary['raw_model_output_sha256']}")
+    print(f"parsed_action               -> {summary['parsed_action']}")
+    print(f"drf_decision                -> {summary['drf_decision']}")
+    print(f"tool_execution              -> {summary['tool_execution']}")
+    print(f"tool_execution_boundary     -> {summary['tool_execution_boundary']}")
+    print(f"claim_status                -> {summary['claim_status']}")
+    print(f"WAL records                 -> {summary['wal_records']}")
+    print(f"verifier                    -> {summary['verifier_status']}")
+    print(f"trust_receipt               -> generated")
+    print(f"WAL: {summary['wal_path']}")
+    print(f"Verifier Report: {summary['verifier_report_path']}")
+    if summary.get("review_queue_path"):
+        print(f"Review Queue: {summary['review_queue_path']}")
+    print(f"Trust Receipt: {summary['trust_receipt_path']}")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="drf-omtir")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -77,6 +107,9 @@ def main(argv: list[str] | None = None) -> int:
     resilient_parser.add_argument("--root", default=".")
     resilient_parser.add_argument("--provider-route", default="TRUEFOUNDRY_GATEWAY")
     resilient_parser.add_argument("--model", default="GEMINI_FLASH_LITE")
+
+    live_parser = subparsers.add_parser("live-proposal-demo")
+    live_parser.add_argument("--root", default=".")
 
     verify_parser = subparsers.add_parser("verify")
     verify_parser.add_argument("wal")
@@ -107,6 +140,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "resilient-demo":
         summary = run_resilient_demo(args.root, provider_route=args.provider_route, model=args.model)
         _print_resilient_demo(summary)
+        return 0 if summary["Status"] == "PASS" else 1
+
+    if args.command == "live-proposal-demo":
+        summary = run_live_proposal_demo(args.root)
+        _print_live_proposal_demo(summary)
         return 0 if summary["Status"] == "PASS" else 1
 
     if args.command == "verify":

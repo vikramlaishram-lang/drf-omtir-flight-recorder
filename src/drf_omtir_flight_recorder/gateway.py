@@ -36,6 +36,7 @@ class TypedGateway:
         *,
         evidence: list[EvidenceRef] | None = None,
         adapted_from_event_id: str | None = None,
+        proposal_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         evidence = evidence or []
         event_id = self.wal.next_event_id()
@@ -85,6 +86,18 @@ class TypedGateway:
             "feedback": feedback,
             "adaptation": self._adaptation(adapted_from_event_id, "typed_action_selected"),
         }
+        if proposal_metadata:
+            for key in [
+                "agent_proposal_source",
+                "policy_evaluation",
+                "model_provider",
+                "model",
+                "raw_model_output_sha256",
+                "parsed_proposal",
+                "tool_execution_boundary",
+            ]:
+                if key in proposal_metadata:
+                    payload[key] = proposal_metadata[key]
         record = self.wal.append(payload)
         return {
             "event_id": event_id,

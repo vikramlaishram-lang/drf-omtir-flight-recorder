@@ -8,6 +8,12 @@ from .gateway import TypedGateway
 from .models import EvidenceLane, EvidenceRef, ToolResult
 from .policy import Policy
 from .receipt import write_trust_receipt
+from .truefoundry_client import (
+    MalformedProposalError,
+    MissingTrueFoundryConfig,
+    TrueFoundryClientError,
+    TrueFoundryProposalClient,
+)
 from .verifier import verify_wal
 from .wal import Wal, canonical_json, sha256_bytes, sha256_file
 
@@ -93,6 +99,45 @@ def _search_logs_handler(root: Path):
             source="search_logs",
             lane=EvidenceLane.STRUCTURAL,
             output_path=relative_output,
+            output_sha256=sha256_file(output_path),
+            validation="VALID",
+        )
+        return ToolResult(
+            output=result,
+            evidence=evidence,
+            input_sha256_before=before,
+            input_sha256_after=after,
+            input_unchanged=before == after,
+        )
+
+    return handler
+
+
+def _live_proposal_search_logs_handler(root: Path, *, model: str):
+    def handler(arguments: dict[str, Any]) -> ToolResult:
+        before = sha256_bytes(canonical_json(arguments))
+        result = {
+            "source": "live_proposal_demo_local_stub",
+            "model": model,
+            "tool": "search_logs",
+            "tool_execution_boundary": "LOCAL_STUB",
+            "query": arguments,
+            "matches": [
+                {
+                    "service": arguments.get("service", "checkout-api"),
+                    "severity": "warning",
+                    "message": "Local stub result used as structural evidence for the live proposal demo.",
+                }
+            ],
+        }
+        output_path = root / "examples" / "live-proposal-demo-search-logs-result.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(result, indent=2, sort_keys=True), encoding="utf-8")
+        after = sha256_bytes(canonical_json(arguments))
+        evidence = EvidenceRef(
+            source="search_logs",
+            lane=EvidenceLane.STRUCTURAL,
+            output_path=output_path.relative_to(root).as_posix(),
             output_sha256=sha256_file(output_path),
             validation="VALID",
         )
@@ -235,6 +280,37 @@ def _write_review_queue(root: Path, review: dict[str, Any], adapted_from_event_i
     }
     review_queue_path.write_text(json.dumps(review_item, sort_keys=True) + "\n", encoding="utf-8")
     return review_queue_path
+
+
+def _write_live_review_queue(root: Path, review: dict[str, Any], action: str) -> Path:
+    review_queue_path = root / "reports" / "live-proposal-demo-review-queue.jsonl"
+    review_queue_path.parent.mkdir(parents=True, exist_ok=True)
+    review_item = {
+        "queue_version": "drf_omtir_review_queue.v0.2",
+        "event_id": review["event_id"],
+        "action": action,
+        "decision": review["decision"],
+        "reason": review["reason"],
+        "status": "PENDING_HUMAN_REVIEW",
+        "reviewer": "human_reviewer_required",
+        "boundary": "This is a local review stub for the bounded live-proposal-demo run.",
+    }
+    review_queue_path.write_text(json.dumps(review_item, sort_keys=True) + "\n", encoding="utf-8")
+    return review_queue_path
+
+
+def _live_tool_execution_status(decision: str, executed: bool) -> str:
+    if executed:
+        return "EXECUTED_AFTER_ALLOW"
+    if decision == "REQUEST_REVIEW":
+        return "REQUEST_REVIEW"
+    return "NOT_EXECUTED"
+
+
+def _remove_if_exists(*paths: Path) -> None:
+    for path in paths:
+        if path.exists():
+            path.unlink()
 
 
 def run_demo(root: str | Path = ".", policy_path: str | Path | None = None) -> dict[str, Any]:
@@ -396,6 +472,7 @@ def run_resilient_demo(
             "certification, or all-agent safety."
         ),
     }
+
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
     receipt_path = root_path / "receipts" / "resilient-demo-trust-receipt.md"
     write_trust_receipt(wal_path, receipt_path, root=root_path)
@@ -477,4 +554,144 @@ def run_resilient_demo(
             "validation, production reliability, universal failure recovery, enterprise certification, "
             "or all-agent safety."
         ),
+    }
+
+
+def run_live_proposal_demo(root: str | Path = ".") -> dict[str, Any]:
+    """Run v0.2 live model proposal interception through TrueFoundry.
+
+    This replaces only the proposal source:
+    LIVE_MODEL_OUTPUT -> DEFAULT_POLICY / TypedGateway -> WAL -> verifier -> receipt.
+    """
+    init_workspace(root)
+    root_path = Path(root).resolve()
+
+    wal_path = root_path / "wal" / "live-proposal-demo.jsonl"
+    report_path = root_path / "reports" / "live-proposal-demo-verifier-report.json"
+    receipt_path = root_path / "receipts" / "live-proposal-demo-trust-receipt.md"
+    review_queue_path = root_path / "reports" / "live-proposal-demo-review-queue.jsonl"
+
+    _remove_if_exists(wal_path, report_path, receipt_path, review_queue_path)
+
+    try:
+        client = TrueFoundryProposalClient.from_env()
+        live_proposal = client.get_proposal()
+    except MissingTrueFoundryConfig as exc:
+        return {
+            "Status": "BLOCKED",
+            "reason": "missing TrueFoundry environment variables",
+            "missing": exc.missing,
+        }
+    except MalformedProposalError as exc:
+        return {
+            "Status": "BLOCKED",
+            "reason": "malformed model proposal after retry",
+            "error": str(exc),
+        }
+    except TrueFoundryClientError as exc:
+        return {
+            "Status": "BLOCKED",
+            "reason": "TrueFoundry client error",
+            "error": str(exc),
+        }
+
+    parsed = live_proposal.parsed_proposal
+    action = str(parsed.get("action", "unknown"))
+    arguments = parsed.get("arguments") or {}
+    if not isinstance(arguments, dict):
+        return {
+            "Status": "BLOCKED",
+            "reason": "parsed proposal arguments were not an object",
+        }
+
+    policy = Policy.from_dict(DEFAULT_POLICY)
+    wal = Wal(wal_path)
+    gateway = TypedGateway(root_path, policy, wal)
+
+    # Register only the local typed stub tools that are safe to execute.
+    # Non-executable or unknown actions remain governed by DEFAULT_POLICY.
+    gateway.register_tool(
+        "search_logs",
+        _live_proposal_search_logs_handler(root_path, model=live_proposal.model),
+    )
+
+    proposal_metadata = {
+        "agent_proposal_source": "LIVE_MODEL_OUTPUT",
+        "policy_evaluation": "LIVE",
+        "model_provider": "TRUEFOUNDRY_GATEWAY",
+        "model": live_proposal.model,
+        "raw_model_output_sha256": live_proposal.raw_model_output_sha256,
+        "parsed_proposal": parsed,
+        "tool_execution_boundary": "LOCAL_STUB",
+    }
+
+    action_result = gateway.propose_action(
+        action,
+        arguments,
+        proposal_metadata=proposal_metadata,
+    )
+
+    review_path_value: str | None = None
+    if action_result["decision"] == "REQUEST_REVIEW":
+        review_path = _write_live_review_queue(root_path, action_result, action)
+        review_path_value = str(review_path)
+
+    # Exercise OMTIR claim admission without inventing production evidence.
+    if action_result["executed"]:
+        claim_result = gateway.submit_claim(
+            "Live model proposal produced local structural evidence through a typed stub tool.",
+            requested_status="CONFIRMED",
+            evidence_event_id=action_result["event_id"],
+            adapted_from_event_id=action_result["event_id"],
+        )
+    else:
+        claim_result = gateway.submit_claim(
+            "Live model proposal was governed without executable tool evidence.",
+            requested_status="HYPOTHESIS",
+            adapted_from_event_id=action_result["event_id"],
+        )
+
+    verifier_report = verify_wal(wal_path, root=root_path)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(json.dumps(verifier_report.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+
+    if verifier_report.status != "PASS":
+        return {
+            "Status": "BLOCKED",
+            "reason": "verifier failed",
+            "verifier_status": verifier_report.status,
+            "wal_path": str(wal_path),
+            "verifier_report_path": str(report_path),
+        }
+
+    write_trust_receipt(wal_path, receipt_path, root=root_path)
+
+    wal_records = wal.read()
+    checks = {
+        "live_model_output": True,
+        "raw_model_output_sha256": bool(live_proposal.raw_model_output_sha256),
+        "parsed_proposal": isinstance(parsed, dict),
+        "verifier_PASS": verifier_report.status == "PASS",
+        "trust_receipt_generated": receipt_path.exists(),
+    }
+
+    return {
+        "Status": "PASS",
+        "provider_route": "TRUEFOUNDRY_GATEWAY",
+        "model": live_proposal.model,
+        "agent_proposal_source": "LIVE_MODEL_OUTPUT",
+        "policy_evaluation": "LIVE",
+        "raw_model_output_sha256": live_proposal.raw_model_output_sha256,
+        "parsed_action": action,
+        "drf_decision": action_result["decision"],
+        "tool_execution": _live_tool_execution_status(action_result["decision"], action_result["executed"]),
+        "tool_execution_boundary": "LOCAL_STUB",
+        "claim_status": claim_result["status"],
+        "wal_records": len(wal_records),
+        "verifier_status": verifier_report.status,
+        "wal_path": str(wal_path),
+        "verifier_report_path": str(report_path),
+        "trust_receipt_path": str(receipt_path),
+        "review_queue_path": review_path_value,
+        "checks": checks,
     }
