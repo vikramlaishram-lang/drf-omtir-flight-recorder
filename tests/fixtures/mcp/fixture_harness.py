@@ -11,7 +11,10 @@ from typing import Any
 
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
 STUB_SERVER = HERE / "stub_mcp_server.py"
+EXAMPLE_POLICY = ROOT / "policy" / "example-policy.yaml"
+MUTATION_POLICY = HERE / "policy_mutation_allow_delete_index.yaml"
 
 
 class HarnessError(RuntimeError):
@@ -75,9 +78,9 @@ def tools_call(name: str, request_id: int, arguments: dict[str, Any]) -> dict[st
     }
 
 
-def start_stub() -> tuple[subprocess.Popen[str], queue.Queue[str]]:
+def start_process(command: list[str]) -> tuple[subprocess.Popen[str], queue.Queue[str]]:
     proc = subprocess.Popen(
-        [sys.executable, str(STUB_SERVER)],
+        command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -90,55 +93,199 @@ def start_stub() -> tuple[subprocess.Popen[str], queue.Queue[str]]:
     return proc, output_queue
 
 
+def start_stub() -> tuple[subprocess.Popen[str], queue.Queue[str]]:
+    return start_process([sys.executable, str(STUB_SERVER)])
+
+
+def start_proxy(policy_path: Path, wal_path: Path) -> tuple[subprocess.Popen[str], queue.Queue[str]]:
+    wal_path.parent.mkdir(parents=True, exist_ok=True)
+    if wal_path.exists():
+        wal_path.unlink()
+
+    command = [
+        sys.executable,
+        "-m",
+        "drf_omtir_flight_recorder.cli",
+        "wrap",
+        "--root",
+        str(ROOT),
+        "--policy",
+        str(policy_path),
+        "--wal",
+        str(wal_path),
+        "--",
+        sys.executable,
+        str(STUB_SERVER),
+    ]
+    return start_process(command)
+
+
+def stop_process(proc: subprocess.Popen[str]) -> None:
+    proc.terminate()
+    try:
+        proc.wait(timeout=2)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
+
+def handshake(proc: subprocess.Popen[str], output_queue: queue.Queue[str]) -> None:
+    send(proc, initialize_message())
+    response = read_response(output_queue)
+    assert_true(response["id"] == 1, "initialize response id mismatch")
+    result = response.get("result", {})
+    assert_true(result.get("protocolVersion") == "2025-03-26", "protocol version mismatch")
+    assert_true("tools" in result.get("capabilities", {}), "tools capability missing")
+    assert_true(result.get("serverInfo", {}).get("name") == "stub-mcp-server", "serverInfo.name mismatch")
+
+    send(proc, initialized_notification())
+    time.sleep(0.2)
+    assert_true(output_queue.empty(), "initialized notification should not produce a response")
+
+
+def assert_tools_list(proc: subprocess.Popen[str], output_queue: queue.Queue[str]) -> None:
+    send(proc, tools_list_message())
+    response = read_response(output_queue)
+    tools = response.get("result", {}).get("tools", [])
+    names = {tool.get("name") for tool in tools}
+    expected = {"search_logs", "read_metrics", "delete_index", "restart_service"}
+    assert_true(expected.issubset(names), f"tools/list missing tools: {expected - names}")
+
+
+def read_wal(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise HarnessError(f"WAL missing: {path}")
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def wal_payloads(path: Path) -> list[dict[str, Any]]:
+    return [row.get("payload", {}) for row in read_wal(path)]
+
+
+def assert_wal_decision(path: Path, *, tool: str, decision: str, forwarded: bool) -> None:
+    payloads = wal_payloads(path)
+    for payload in payloads:
+        if payload.get("event_type") == "mcp_tool_call_decision" and payload.get("parsed_tool_name") == tool:
+            assert_true(payload.get("agent_proposal_source") == "EXTERNAL_MCP_AGENT", "WAL source mismatch")
+            assert_true(payload.get("drf_decision") == decision, f"WAL decision mismatch: {payload}")
+            assert_true(payload.get("forwarded") is forwarded, f"WAL forwarded mismatch: {payload}")
+            return
+    raise HarnessError(f"No decision WAL event found for {tool}")
+
+
+def assert_wal_result(path: Path, *, tool: str) -> None:
+    payloads = wal_payloads(path)
+    for payload in payloads:
+        if payload.get("event_type") == "mcp_tool_call_result" and payload.get("parsed_tool_name") == tool:
+            assert_true(payload.get("forwarded") is True, f"WAL result forwarded mismatch: {payload}")
+            assert_true(payload.get("tool_execution_boundary") == "MCP_PROXY_STUB_SERVER", "tool boundary mismatch")
+            return
+    raise HarnessError(f"No result WAL event found for {tool}")
+
+
 def stub_smoke() -> int:
     proc, output_queue = start_stub()
     try:
-        send(proc, initialize_message())
-        response = read_response(output_queue)
-        assert_true(response["id"] == 1, "initialize response id mismatch")
-        result = response.get("result", {})
-        assert_true(result.get("protocolVersion") == "2025-03-26", "protocol version mismatch")
-        assert_true("tools" in result.get("capabilities", {}), "tools capability missing")
-        assert_true(result.get("serverInfo", {}).get("name") == "stub-mcp-server", "serverInfo.name mismatch")
-
-        send(proc, initialized_notification())
-        time.sleep(0.2)
-        assert_true(output_queue.empty(), "initialized notification should not produce a response")
-
-        send(proc, tools_list_message())
-        response = read_response(output_queue)
-        tools = response.get("result", {}).get("tools", [])
-        names = {tool.get("name") for tool in tools}
-        expected = {"search_logs", "read_metrics", "delete_index", "restart_service"}
-        assert_true(expected.issubset(names), f"tools/list missing tools: {expected - names}")
+        handshake(proc, output_queue)
+        assert_tools_list(proc, output_queue)
 
         send(proc, tools_call("search_logs", 3, {"query": "error OR timeout", "limit": 10}))
         response = read_response(output_queue)
         assert_true(response["id"] == 3, "search_logs response id mismatch")
         assert_true(response.get("result", {}).get("isError") is False, "search_logs should not be error")
-        text = response["result"]["content"][0]["text"]
-        assert_true("stub search_logs result" in text, "search_logs text mismatch")
+        assert_true("stub search_logs result" in response["result"]["content"][0]["text"], "search_logs text mismatch")
 
         send(proc, tools_call("read_metrics", 5, {"service": "checkout-api"}))
         response = read_response(output_queue)
         assert_true(response["id"] == 5, "read_metrics response id mismatch")
         assert_true(response.get("result", {}).get("isError") is False, "read_metrics should not be error")
-        text = response["result"]["content"][0]["text"]
-        assert_true("latency_p95_ms=912" in text, "read_metrics text mismatch")
+        assert_true("latency_p95_ms=912" in response["result"]["content"][0]["text"], "read_metrics text mismatch")
 
         print("STUB_SMOKE_PASS")
         return 0
     finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=2)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        stop_process(proc)
 
 
-def not_implemented(mode: str) -> int:
-    print(f"{mode}: NOT_IMPLEMENTED_IN_PHASE_0")
-    return 2
+def proxy_deny() -> int:
+    wal_path = ROOT / "wal" / "mcp-proxy-deny.jsonl"
+    proc, output_queue = start_proxy(EXAMPLE_POLICY, wal_path)
+    try:
+        handshake(proc, output_queue)
+        send(proc, tools_call("delete_index", 2, {"index": "demo-logs"}))
+        response = read_response(output_queue)
+        assert_true(response["id"] == 2, "delete_index response id mismatch")
+        assert_true(response.get("result", {}).get("isError") is True, "delete_index should be denied")
+        assert_true("DENIED by DRF policy" in response["result"]["content"][0]["text"], "deny text mismatch")
+        assert_wal_decision(wal_path, tool="delete_index", decision="DENY", forwarded=False)
+        print("PROXY_DENY_PASS")
+        return 0
+    finally:
+        stop_process(proc)
+
+
+def proxy_allow() -> int:
+    wal_path = ROOT / "wal" / "mcp-proxy-allow.jsonl"
+    proc, output_queue = start_proxy(EXAMPLE_POLICY, wal_path)
+    try:
+        handshake(proc, output_queue)
+        assert_tools_list(proc, output_queue)
+        send(proc, tools_call("search_logs", 3, {"query": "error OR timeout", "limit": 10}))
+        response = read_response(output_queue)
+        assert_true(response["id"] == 3, "search_logs response id mismatch")
+        assert_true(response.get("result", {}).get("isError") is False, "search_logs should be allowed")
+        assert_true("stub search_logs result" in response["result"]["content"][0]["text"], "allow text mismatch")
+        assert_wal_decision(wal_path, tool="search_logs", decision="ALLOW", forwarded=True)
+        assert_wal_result(wal_path, tool="search_logs")
+        print("PROXY_ALLOW_PASS")
+        return 0
+    finally:
+        stop_process(proc)
+
+
+def proxy_review() -> int:
+    wal_path = ROOT / "wal" / "mcp-proxy-review.jsonl"
+    proc, output_queue = start_proxy(EXAMPLE_POLICY, wal_path)
+    try:
+        handshake(proc, output_queue)
+        send(proc, tools_call("restart_service", 4, {"service": "checkout-api"}))
+        response = read_response(output_queue)
+        assert_true(response["id"] == 4, "restart_service response id mismatch")
+        assert_true(response.get("result", {}).get("isError") is True, "restart_service should be review-blocked")
+        assert_true("PENDING REVIEW by DRF policy" in response["result"]["content"][0]["text"], "review text mismatch")
+        assert_wal_decision(wal_path, tool="restart_service", decision="REQUEST_REVIEW", forwarded=False)
+        print("PROXY_REVIEW_PASS")
+        return 0
+    finally:
+        stop_process(proc)
+
+
+def policy_mutation() -> int:
+    deny_wal = ROOT / "wal" / "mcp-proxy-mutation-deny.jsonl"
+    allow_wal = ROOT / "wal" / "mcp-proxy-mutation-allow.jsonl"
+
+    proc, output_queue = start_proxy(EXAMPLE_POLICY, deny_wal)
+    try:
+        handshake(proc, output_queue)
+        send(proc, tools_call("delete_index", 2, {"index": "demo-logs"}))
+        response = read_response(output_queue)
+        assert_true(response.get("result", {}).get("isError") is True, "example policy should deny delete_index")
+        assert_wal_decision(deny_wal, tool="delete_index", decision="DENY", forwarded=False)
+    finally:
+        stop_process(proc)
+
+    proc, output_queue = start_proxy(MUTATION_POLICY, allow_wal)
+    try:
+        handshake(proc, output_queue)
+        send(proc, tools_call("delete_index", 2, {"index": "demo-logs"}))
+        response = read_response(output_queue)
+        assert_true(response.get("result", {}).get("isError") is False, "mutation policy should allow delete_index")
+        assert_true("stub delete_index result" in response["result"]["content"][0]["text"], "mutation allow text mismatch")
+        assert_wal_decision(allow_wal, tool="delete_index", decision="ALLOW", forwarded=True)
+        assert_wal_result(allow_wal, tool="delete_index")
+        print("POLICY_MUTATION_PASS")
+        return 0
+    finally:
+        stop_process(proc)
 
 
 def main(argv: list[str]) -> int:
@@ -150,8 +297,14 @@ def main(argv: list[str]) -> int:
     try:
         if mode == "stub-smoke":
             return stub_smoke()
-        if mode in {"proxy-deny", "proxy-allow", "proxy-review", "policy-mutation"}:
-            return not_implemented(mode)
+        if mode == "proxy-deny":
+            return proxy_deny()
+        if mode == "proxy-allow":
+            return proxy_allow()
+        if mode == "proxy-review":
+            return proxy_review()
+        if mode == "policy-mutation":
+            return policy_mutation()
         print(f"unknown mode: {mode}")
         return 2
     except HarnessError as exc:

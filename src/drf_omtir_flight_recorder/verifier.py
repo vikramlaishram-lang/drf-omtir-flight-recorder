@@ -81,7 +81,11 @@ def verify_wal(path: str | Path, *, root: str | Path = ".") -> VerificationRepor
         event_id = payload.get("event_id")
         execution = payload.get("execution", {})
         action_contract = payload.get("action_contract") or {}
-        decision = (payload.get("drf_decision") or {}).get("decision")
+        raw_decision = payload.get("drf_decision")
+        if isinstance(raw_decision, dict):
+            decision = raw_decision.get("decision")
+        else:
+            decision = raw_decision
 
         if decision in {"DENY", "REQUEST_REVIEW"} and execution.get("executed"):
             errors.append(f"{event_id}: non-ALLOW decision executed")
