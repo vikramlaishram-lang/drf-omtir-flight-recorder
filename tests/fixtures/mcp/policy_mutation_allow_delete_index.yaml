@@ -1,0 +1,23 @@
+version: drf-omtir-policy-v0.3
+default_decision: DENY
+actions:
+  - name: delete_index
+    effect: DESTRUCTIVE
+    decision: ALLOW
+    executable: true
+    reason: mutation_test_allow_override
+  - name: search_logs
+    effect: READ_ONLY
+    decision: ALLOW
+    executable: true
+    reason: read_only_observation
+  - name: read_metrics
+    effect: READ_ONLY
+    decision: ALLOW
+    executable: true
+    reason: read_only_observation
+  - name: restart_service
+    effect: STATE_CHANGING
+    decision: REQUEST_REVIEW
+    executable: false
+    reason: human_approval_required
