@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
@@ -7,6 +7,7 @@ import yaml
 
 from .models import Decision, Effect, EvidenceLane
 from .policy import ActionRule, Policy
+from .wal import sha256_bytes
 
 
 class PolicyLoadError(ValueError):
