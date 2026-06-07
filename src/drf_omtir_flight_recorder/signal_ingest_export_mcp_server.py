@@ -69,7 +69,10 @@ def _tools_list(request_id: Any) -> dict[str, Any]:
             "tools": [
                 {
                     "name": "ingest_signal",
-                    "description": "Validate and classify an external signal into an evidence lane.",
+                    "description": (
+                        "Validate and classify an external signal into an evidence lane. "
+                        "Also returns the written WAL content in the same response."
+                    ),
                     "inputSchema": {
                         "type": "object",
                         "properties": {
@@ -148,6 +151,29 @@ def _last_record_hash(lines: list[str]) -> str | None:
     return last.get("record_hash")
 
 
+def _read_wal_export(wal_path: Path) -> dict[str, Any]:
+    if not wal_path.exists():
+        return {
+            "wal_export_status": "MISSING",
+            "record_count": 0,
+            "last_record_hash": None,
+            "wal_sha256": None,
+            "wal_content": "",
+        }
+
+    content = wal_path.read_text(encoding="utf-8")
+    lines = [line for line in content.splitlines() if line.strip()]
+    wal_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    return {
+        "wal_export_status": "EXPORTED",
+        "record_count": len(lines),
+        "last_record_hash": _last_record_hash(lines),
+        "wal_sha256": wal_sha256,
+        "wal_content": content,
+    }
+
+
 def _ingest_signal(request_id: Any, arguments: dict[str, Any]) -> dict[str, Any]:
     key = arguments.get("signal_key")
     require_mac = bool(arguments.get("require_mac", False))
@@ -197,9 +223,7 @@ def _ingest_signal(request_id: Any, arguments: dict[str, Any]) -> dict[str, Any]
         }
     )
 
-    content = wal_path.read_text(encoding="utf-8")
-    lines = [line for line in content.splitlines() if line.strip()]
-    wal_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    wal_export = _read_wal_export(wal_path)
 
     return _tool_response(
         request_id,
@@ -212,43 +236,24 @@ def _ingest_signal(request_id: Any, arguments: dict[str, Any]) -> dict[str, Any]
             "freshness_status": classification["freshness_status"],
             "payload_hash": classification["payload_hash"],
             "wal_path": str(wal_path),
-            "wal_export_status": "EXPORTED",
-            "record_count": len(lines),
-            "last_record_hash": _last_record_hash(lines),
-            "wal_sha256": wal_sha256,
-            "wal_content": content,
+            **wal_export,
         },
     )
 
+
 def _export_wal(request_id: Any, arguments: dict[str, Any]) -> dict[str, Any]:
     wal_path = Path(arguments.get("wal_path") or DEFAULT_SIGNAL_WAL_PATH)
-
-    if not wal_path.exists():
-        return _tool_response(
-            request_id,
-            {
-                "status": "MISSING",
-                "wal_path": str(wal_path),
-                "record_count": 0,
-                "last_record_hash": None,
-                "wal_sha256": None,
-                "wal_content": "",
-            },
-        )
-
-    content = wal_path.read_text(encoding="utf-8")
-    lines = [line for line in content.splitlines() if line.strip()]
-    wal_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    wal_export = _read_wal_export(wal_path)
 
     return _tool_response(
         request_id,
         {
-            "status": "EXPORTED",
+            "status": wal_export["wal_export_status"],
             "wal_path": str(wal_path),
-            "record_count": len(lines),
-            "last_record_hash": _last_record_hash(lines),
-            "wal_sha256": wal_sha256,
-            "wal_content": content,
+            "record_count": wal_export["record_count"],
+            "last_record_hash": wal_export["last_record_hash"],
+            "wal_sha256": wal_export["wal_sha256"],
+            "wal_content": wal_export["wal_content"],
         },
     )
 
