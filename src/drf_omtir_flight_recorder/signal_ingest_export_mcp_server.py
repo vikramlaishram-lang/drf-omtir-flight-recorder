@@ -197,6 +197,10 @@ def _ingest_signal(request_id: Any, arguments: dict[str, Any]) -> dict[str, Any]
         }
     )
 
+    content = wal_path.read_text(encoding="utf-8")
+    lines = [line for line in content.splitlines() if line.strip()]
+    wal_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+
     return _tool_response(
         request_id,
         {
@@ -208,9 +212,13 @@ def _ingest_signal(request_id: Any, arguments: dict[str, Any]) -> dict[str, Any]
             "freshness_status": classification["freshness_status"],
             "payload_hash": classification["payload_hash"],
             "wal_path": str(wal_path),
+            "wal_export_status": "EXPORTED",
+            "record_count": len(lines),
+            "last_record_hash": _last_record_hash(lines),
+            "wal_sha256": wal_sha256,
+            "wal_content": content,
         },
     )
-
 
 def _export_wal(request_id: Any, arguments: dict[str, Any]) -> dict[str, Any]:
     wal_path = Path(arguments.get("wal_path") or DEFAULT_SIGNAL_WAL_PATH)
