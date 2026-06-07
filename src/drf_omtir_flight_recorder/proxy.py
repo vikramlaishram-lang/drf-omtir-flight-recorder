@@ -11,6 +11,7 @@ from .mcp_interceptor import InterceptionResult, intercept_mcp_message
 from .policy import Policy
 from .policy_loader import load_policy_yaml
 from .runtime_guard import enforce_local_mvp_scope
+from .review import ReviewAction, build_review_event
 from .wal import Wal
 
 
@@ -137,6 +138,29 @@ class GovernanceProxy:
 
         return server_response
 
+
+    def append_reviewer_action(
+        self,
+        review: ReviewAction,
+        *,
+        hmac_key: str | bytes | None = None,
+        key_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Append an accountable reviewer action to the WAL.
+
+        This records reviewer identity, reviewer role, target event link,
+        policy metadata, and optional review-action MAC.
+        """
+        payload = build_review_event(
+            event_id=self.wal.next_event_id(),
+            review=review,
+            policy_version=self.policy.version,
+            policy_hash=getattr(self.policy, "policy_hash", None),
+            policy_source=getattr(self.policy, "policy_source", None),
+            hmac_key=hmac_key,
+            key_id=key_id,
+        )
+        return self.wal.append(payload)
     def _forward_ungoverned(self, message: dict[str, Any]) -> dict[str, Any] | None:
         if "id" not in message:
             notify = getattr(self.transport, "notify", None)
@@ -293,3 +317,4 @@ def run_stdio_proxy(
         transport.close()
 
     return 0
+
