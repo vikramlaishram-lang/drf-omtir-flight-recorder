@@ -12,6 +12,7 @@ from .policy import Policy
 from .policy_loader import load_policy_yaml
 from .runtime_guard import enforce_local_mvp_scope
 from .review import ReviewAction, build_review_event
+from .signal import SignalEnvelope, build_signal_ingest_event, classify_signal_envelope
 from .wal import Wal
 
 
@@ -139,6 +140,33 @@ class GovernanceProxy:
         return server_response
 
 
+
+    def append_signal_ingest(
+        self,
+        envelope: SignalEnvelope,
+        *,
+        key: str | bytes | None = None,
+        require_mac: bool = True,
+        admitted_lane: str = "REFERENCE",
+    ) -> dict[str, Any]:
+        """Validate, classify, and record an external signal envelope.
+
+        Signals that are stale, malformed, unsigned, or MAC-invalid are
+        recorded but quarantined. They are not admitted as authority.
+        """
+        classification = classify_signal_envelope(
+            envelope,
+            key=key,
+            require_mac=require_mac,
+            admitted_lane=admitted_lane,
+        )
+        payload = build_signal_ingest_event(
+            event_id=self.wal.next_event_id(),
+            envelope=envelope,
+            classification=classification,
+        )
+        payload.update(self._policy_metadata())
+        return self.wal.append(payload)
     def append_reviewer_action(
         self,
         review: ReviewAction,
@@ -317,4 +345,5 @@ def run_stdio_proxy(
         transport.close()
 
     return 0
+
 
