@@ -4,11 +4,13 @@ Status: CORE PASS
 
 Environment:
 - TrueFoundry Hosted STDIO MCP
-- DRF-governed wrapper
-- @modelcontextprotocol/server-filesystem
+- MCP server: drf-omtir-filesystem-governed
+- DRF wrapper around @modelcontextprotocol/server-filesystem
 - Workspace: /tmp/drf-omtir-workspace
+- WAL mode env configured: HMAC_SHA256_V1
+- Deployment mode: local_mvp
 
-Proven decisions:
+Confirmed decisions:
 
 1. ALLOW
 Tool: read_text_file
