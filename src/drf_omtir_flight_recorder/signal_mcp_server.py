@@ -9,7 +9,15 @@ from .signal import SignalEnvelope, classify_signal_envelope
 from .wal import Wal
 
 
-def _response(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
+def _mcp_result(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "result": result,
+    }
+
+
+def _tool_response(request_id: Any, result: dict[str, Any]) -> dict[str, Any]:
     return {
         "jsonrpc": "2.0",
         "id": request_id,
@@ -36,8 +44,24 @@ def _error(request_id: Any, message: str) -> dict[str, Any]:
     }
 
 
+def _initialize(request_id: Any) -> dict[str, Any]:
+    return _mcp_result(
+        request_id,
+        {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {
+                "tools": {}
+            },
+            "serverInfo": {
+                "name": "drf-omtir-signal-ingest",
+                "version": "0.1.9",
+            },
+        },
+    )
+
+
 def _tools_list(request_id: Any) -> dict[str, Any]:
-    return _response(
+    return _mcp_result(
         request_id,
         {
             "tools": [
@@ -47,12 +71,45 @@ def _tools_list(request_id: Any) -> dict[str, Any]:
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "source_id": {"type": "string"},
-                            "source_type": {"type": "string"},
-                            "payload": {"type": "object"},
-                            "ttl_seconds": {"type": "integer"},
-                            "source_mac": {"type": "string"},
-                            "key_id": {"type": "string"},
+                            "source_id": {
+                                "type": "string",
+                                "description": "Unique source identifier."
+                            },
+                            "source_type": {
+                                "type": "string",
+                                "description": "Signal source type."
+                            },
+                            "payload": {
+                                "type": "object",
+                                "description": "Structured external signal payload."
+                            },
+                            "ttl_seconds": {
+                                "type": "integer",
+                                "description": "Freshness TTL in seconds.",
+                                "default": 3600
+                            },
+                            "require_mac": {
+                                "type": "boolean",
+                                "description": "Require source MAC validation.",
+                                "default": False
+                            },
+                            "signal_key": {
+                                "type": "string",
+                                "description": "Optional local validation key for demo/MVP use."
+                            },
+                            "source_mac": {
+                                "type": "string",
+                                "description": "Optional source MAC supplied by caller."
+                            },
+                            "key_id": {
+                                "type": "string",
+                                "description": "Optional key identifier."
+                            },
+                            "wal_path": {
+                                "type": "string",
+                                "description": "Optional WAL path.",
+                                "default": "wal/signal-ingest-mcp.jsonl"
+                            }
                         },
                         "required": ["source_id", "source_type", "payload"],
                     },
@@ -101,6 +158,7 @@ def _call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
     )
 
     wal_path = Path(arguments.get("wal_path", "wal/signal-ingest-mcp.jsonl"))
+    wal_path.parent.mkdir(parents=True, exist_ok=True)
     wal = Wal(wal_path)
 
     wal.append(
@@ -116,7 +174,7 @@ def _call_tool(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
         }
     )
 
-    return _response(
+    return _tool_response(
         request_id,
         {
             "status": "RECORDED",
@@ -135,32 +193,26 @@ def main() -> int:
         if not line.strip():
             continue
 
+        request_id = None
+
         try:
             message = json.loads(line)
             request_id = message.get("id")
             method = message.get("method")
 
             if method == "initialize":
-                response = _response(
-                    request_id,
-                    {
-                        "protocolVersion": "2024-11-05",
-                        "capabilities": {"tools": {}},
-                        "serverInfo": {
-                            "name": "drf-omtir-signal-ingest",
-                            "version": "0.1.9",
-                        },
-                    },
-                )
+                response = _initialize(request_id)
             elif method == "tools/list":
                 response = _tools_list(request_id)
             elif method == "tools/call":
                 response = _call_tool(request_id, message.get("params") or {})
+            elif method in {"notifications/initialized", "initialized"}:
+                continue
             else:
                 response = _error(request_id, f"unsupported method: {method}")
 
         except Exception as exc:
-            response = _error(None, str(exc))
+            response = _error(request_id, str(exc))
 
         sys.stdout.write(json.dumps(response, separators=(",", ":")) + "\n")
         sys.stdout.flush()
