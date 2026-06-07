@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import hashlib
@@ -7,7 +7,6 @@ from typing import Any
 
 from .verifier import verify_wal
 from .wal import utc_now
-
 
 BOUNDARY = (
     "This Trust Receipt explains one local DRF + OMTIR Flight Recorder run. "
@@ -50,8 +49,10 @@ def _governance_consequences(records: list[dict[str, Any]], root: Path) -> dict[
         elif status == "CONFIRMED":
             confirmed_claim_events.append(event_id)
 
-        drf = payload.get("drf_decision") or {}
-        if drf.get("decision") == "REQUEST_REVIEW":
+        drf = payload.get("drf_decision") or payload.get("drf")
+        if isinstance(drf, dict) and drf.get("decision") == "REQUEST_REVIEW":
+            pending_review_events.append(event_id)
+        elif isinstance(drf, str) and drf == "REQUEST_REVIEW":
             pending_review_events.append(event_id)
 
     excluded = sorted(set(quarantined_events + rejected_claim_events))
@@ -75,18 +76,42 @@ def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str
         for line in wal_bytes.decode("utf-8").splitlines()
         if line.strip()
     ]
+
     decisions: dict[str, int] = {}
     claims: dict[str, int] = {}
+
     for record in records:
         payload = record.get("payload", {})
-        drf = payload.get("drf_decision")
-        if drf:
-            decisions[drf["decision"]] = decisions.get(drf["decision"], 0) + 1
+        drf = payload.get("drf") or payload.get("drf_decision")
+        decision_value: str | None = None
+
+        # Normalize decision value
+        if isinstance(drf, dict):
+            decision_value = drf.get("decision") or drf.get("drf_decision")
+        elif isinstance(drf, str):
+            decision_value = drf
+        elif payload.get("drf_decision"):
+            decision_value = payload.get("drf_decision")
+        elif payload.get("decision"):
+            decision_value = payload.get("decision")
+
+        # Convert dict to JSON string if necessary
+        if isinstance(decision_value, dict):
+            decision_value = json.dumps(decision_value)
+        elif decision_value is not None:
+            decision_value = str(decision_value)
+
+        if decision_value:
+            decisions[decision_value] = decisions.get(decision_value, 0) + 1
+
+        # Count claim statuses
         claim = payload.get("claim")
         if claim:
             status = claim.get("status", "UNKNOWN")
             claims[status] = claims.get(status, 0) + 1
+
     verifier = verify_wal(wal_path, root=root)
+
     return {
         "receipt_version": "drf_omtir_flight_recorder_trust_receipt.v0.1",
         "generated_at": utc_now(),
@@ -111,71 +136,71 @@ def render_markdown(receipt: dict[str, Any]) -> str:
     verifier = receipt["verifier"]
     resilience = receipt.get("resilience") or {}
     consequences = receipt.get("governance_consequences") or {}
+
     lines = [
-            "# DRF + OMTIR Flight Recorder Trust Receipt v0.1",
-            "",
-            f"Generated: {receipt['generated_at']}",
-            f"WAL: {receipt['wal_path']}",
-            f"WAL SHA-256: {receipt['wal_sha256']}",
-            f"Records: {receipt['records']}",
-            f"Last record hash: {receipt['last_record_hash']}",
-            "",
-            "## Action Decisions",
-            "",
-            *[f"- {key}: {value}" for key, value in sorted(receipt["action_decisions"].items())],
-            "",
-            "## Claim Statuses",
-            "",
-            *[f"- {key}: {value}" for key, value in sorted(receipt["claim_statuses"].items())],
-            "",
-            "## Verifier",
-            "",
-            f"- Status: {verifier['status']}",
-            f"- Records checked: {verifier['records']}",
-            f"- Errors: {json.dumps(verifier['errors'])}",
-            "",
-            "## Governance Consequences",
-            "",
-            "- Quarantined evidence excluded from confirmed claim set: "
-            f"{_join_events(consequences.get('quarantined_events', []))}",
-            "- Rejected hypotheses excluded from confirmed claim set: "
-            f"{_join_events(consequences.get('rejected_claim_events', []))}",
-            "- Confirmed claim events admitted: "
-            f"{_join_events(consequences.get('confirmed_claim_events', []))}",
-            "- Pending human review events: "
-            f"{_join_events(consequences.get('pending_review_events', []))}",
-            f"- Review queue: {consequences.get('review_queue_path') or 'none'}",
-            "",
+        "# DRF + OMTIR Flight Recorder Trust Receipt v0.1",
+        "",
+        f"Generated: {receipt['generated_at']}",
+        f"WAL: {receipt['wal_path']}",
+        f"WAL SHA-256: {receipt['wal_sha256']}",
+        f"Records: {receipt['records']}",
+        f"Last record hash: {receipt['last_record_hash']}",
+        "",
+        "## Action Decisions",
+        "",
+        *[f"- {key}: {value}" for key, value in sorted(receipt["action_decisions"].items())],
+        "",
+        "## Claim Statuses",
+        "",
+        *[f"- {key}: {value}" for key, value in sorted(receipt["claim_statuses"].items())],
+        "",
+        "## Verifier",
+        "",
+        f"- Status: {verifier['status']}",
+        f"- Records checked: {verifier['records']}",
+        f"- Errors: {json.dumps(verifier['errors'])}",
+        "",
+        "## Governance Consequences",
+        "",
+        "- Quarantined evidence excluded from confirmed claim set: "
+        f"{_join_events(consequences.get('quarantined_events', []))}",
+        "- Rejected hypotheses excluded from confirmed claim set: "
+        f"{_join_events(consequences.get('rejected_claim_events', []))}",
+        "- Confirmed claim events admitted: "
+        f"{_join_events(consequences.get('confirmed_claim_events', []))}",
+        "- Pending human review events: "
+        f"{_join_events(consequences.get('pending_review_events', []))}",
+        f"- Review queue: {consequences.get('review_queue_path') or 'none'}",
+        "",
     ]
+
     if resilience:
-        lines.extend(
-            [
-                "## Resilience Context",
-                "",
-                f"- Failure introduced: {resilience.get('failure_introduced', resilience.get('gateway_failure'))}",
-                f"- Gateway failure: {resilience.get('gateway_failure')}",
-                f"- Rate-limit rule: {resilience.get('rate_limit_rule')}",
-                f"- Model route: {resilience.get('provider_route')} -> {resilience.get('model')}",
-                f"- AWS Bedrock: {resilience.get('aws_bedrock')}",
-                f"- First request: {resilience.get('first_request')}",
-                f"- Second request: {resilience.get('second_request')}",
-                "- TrueFoundry evidence: separate Request Trace screenshot showing the 429 rate-limit response.",
-                "- Recovery path: unsafe action denied, weak result quarantined, "
-                "unsupported claim rejected, evidence-linked claim confirmed, risky remediation routed to review.",
-                "- Boundary: AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock "
-                "validation, production reliability, universal failure recovery, enterprise certification, "
-                "or all-agent safety.",
-                "",
-            ]
-        )
-    lines.extend(
-        [
-            "## Boundary",
+        lines.extend([
+            "## Resilience Context",
             "",
-            receipt["boundary"],
+            f"- Failure introduced: {resilience.get('failure_introduced', resilience.get('gateway_failure'))}",
+            f"- Gateway failure: {resilience.get('gateway_failure')}",
+            f"- Rate-limit rule: {resilience.get('rate_limit_rule')}",
+            f"- Model route: {resilience.get('provider_route')} -> {resilience.get('model')}",
+            f"- AWS Bedrock: {resilience.get('aws_bedrock')}",
+            f"- First request: {resilience.get('first_request')}",
+            f"- Second request: {resilience.get('second_request')}",
+            "- TrueFoundry evidence: separate Request Trace screenshot showing the 429 rate-limit response.",
+            "- Recovery path: unsafe action denied, weak result quarantined, "
+            "unsupported claim rejected, evidence-linked claim confirmed, risky remediation routed to review.",
+            "- Boundary: AWS Bedrock was not used in this bounded run. This does not claim AWS Bedrock "
+            "validation, production reliability, universal failure recovery, enterprise certification, "
+            "or all-agent safety.",
             "",
-        ]
-    )
+        ])
+
+    lines.extend([
+        "## Boundary",
+        "",
+        receipt["boundary"],
+        "",
+    ])
+
     return "\n".join(lines)
 
 
