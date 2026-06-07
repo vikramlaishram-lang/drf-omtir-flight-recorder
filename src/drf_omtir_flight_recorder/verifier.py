@@ -1,12 +1,24 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .models import Effect
-from .wal import ZERO_HASH, canonical_json, sha256_bytes, sha256_file
+from .wal import (
+    ZERO_HASH,
+    WAL_AUTH_HMAC,
+    WAL_AUTH_UNKEYED,
+    canonical_json,
+    hmac_sha256_bytes,
+    load_hmac_key,
+    sha256_bytes,
+    sha256_file,
+)
+
+ENV_WAL_HMAC_KEY = "DRF_OMTIR_WAL_HMAC_KEY"
 
 
 @dataclass
@@ -29,9 +41,17 @@ class VerificationReport:
         }
 
 
-def verify_wal(path: str | Path, *, root: str | Path = ".") -> VerificationReport:
+def verify_wal(
+    path: str | Path,
+    *,
+    root: str | Path = ".",
+    hmac_key: str | bytes | None = None,
+    require_hmac: bool = False,
+) -> VerificationReport:
     wal_path = Path(path)
     root_path = Path(root).resolve()
+    verifier_hmac_key = load_hmac_key(hmac_key or os.getenv(ENV_WAL_HMAC_KEY))
+
     errors: list[str] = []
     records: list[dict[str, Any]] = []
 
@@ -49,31 +69,81 @@ def verify_wal(path: str | Path, *, root: str | Path = ".") -> VerificationRepor
     event_ids: set[str] = set()
     payloads: dict[str, dict[str, Any]] = {}
     previous_hash = ZERO_HASH
+
     for expected_sequence, record in enumerate(records, start=1):
         payload = record.get("payload")
         event_id = record.get("event_id")
+
         if record.get("sequence") != expected_sequence:
             errors.append(f"record {expected_sequence}: sequence mismatch")
+
         if not event_id:
             errors.append(f"record {expected_sequence}: missing event_id")
         elif event_id in event_ids:
             errors.append(f"record {expected_sequence}: duplicate event_id {event_id}")
         else:
             event_ids.add(event_id)
+
         if not isinstance(payload, dict):
             errors.append(f"record {expected_sequence}: payload missing or invalid")
             continue
+
         payloads[str(event_id)] = payload
+
         if record.get("previous_hash") != previous_hash:
             errors.append(f"record {expected_sequence}: previous_hash mismatch")
+
         expected_payload_hash = sha256_bytes(canonical_json(payload))
         if record.get("payload_hash") != expected_payload_hash:
             errors.append(f"record {expected_sequence}: payload_hash mismatch")
+
+        wal_auth = record.get("wal_auth") or {}
+        auth_mode = wal_auth.get("mode", WAL_AUTH_UNKEYED)
+
+        if require_hmac and auth_mode != WAL_AUTH_HMAC:
+            errors.append(
+                f"record {expected_sequence}: HMAC required but record is {auth_mode}"
+            )
+
+        if auth_mode == WAL_AUTH_HMAC:
+            if not verifier_hmac_key:
+                errors.append(
+                    f"record {expected_sequence}: HMAC record but verifier key missing"
+                )
+            else:
+                expected_payload_mac = hmac_sha256_bytes(
+                    verifier_hmac_key,
+                    canonical_json(payload),
+                )
+                if record.get("payload_mac") != expected_payload_mac:
+                    errors.append(f"record {expected_sequence}: payload_mac mismatch")
+
+                mac_input = dict(record)
+                actual_record_mac = mac_input.pop("record_mac", None)
+                mac_input.pop("record_hash", None)
+
+                expected_record_mac = hmac_sha256_bytes(
+                    verifier_hmac_key,
+                    canonical_json(mac_input),
+                )
+                if actual_record_mac != expected_record_mac:
+                    errors.append(f"record {expected_sequence}: record_mac mismatch")
+
+        elif auth_mode == WAL_AUTH_UNKEYED:
+            pass
+
+        else:
+            errors.append(
+                f"record {expected_sequence}: unknown wal_auth mode {auth_mode}"
+            )
+
         stripped = dict(record)
         actual_record_hash = stripped.pop("record_hash", None)
         expected_record_hash = sha256_bytes(canonical_json(stripped))
+
         if actual_record_hash != expected_record_hash:
             errors.append(f"record {expected_sequence}: record_hash mismatch")
+
         previous_hash = str(actual_record_hash)
 
     for record in records:
@@ -81,6 +151,7 @@ def verify_wal(path: str | Path, *, root: str | Path = ".") -> VerificationRepor
         event_id = payload.get("event_id")
         execution = payload.get("execution", {})
         action_contract = payload.get("action_contract") or {}
+
         raw_decision = payload.get("drf_decision")
         if isinstance(raw_decision, dict):
             decision = raw_decision.get("decision")
@@ -119,38 +190,50 @@ def verify_wal(path: str | Path, *, root: str | Path = ".") -> VerificationRepor
             if not linked_payload:
                 errors.append(f"{event_id}: confirmed claim missing linked tool event")
                 continue
+
             if not linked_payload.get("execution", {}).get("executed"):
                 errors.append(f"{event_id}: confirmed claim linked event not executed")
+
             sources = linked_payload.get("evidence_packet", {}).get("sources", [])
             structural = [
-                item for item in sources
+                item
+                for item in sources
                 if item.get("lane") == "STRUCTURAL" and item.get("validation") == "VALID"
             ]
+
             if not structural:
                 errors.append(f"{event_id}: confirmed claim lacks structural evidence")
                 continue
+
             expected_hash = claim.get("linked_output_sha256")
             if expected_hash and all(item.get("output_sha256") != expected_hash for item in structural):
                 errors.append(f"{event_id}: confirmed claim output hash not in linked evidence")
+
             for item in structural:
                 output_path = item.get("output_path")
                 output_hash = item.get("output_sha256")
+
                 if not output_path or not output_hash:
                     errors.append(f"{event_id}: structural evidence missing output link")
                     continue
+
                 output = (root_path / output_path).resolve()
+
                 try:
                     output.relative_to(root_path)
                 except ValueError:
                     errors.append(f"{event_id}: structural evidence outside root")
                     continue
+
                 if not output.exists():
                     errors.append(f"{event_id}: structural evidence output missing")
                     continue
+
                 if sha256_file(output) != output_hash:
                     errors.append(f"{event_id}: structural evidence output hash mismatch")
 
     last_hash = records[-1].get("record_hash") if records else None
+
     return VerificationReport(
         "PASS" if not errors else "FAIL",
         len(records),
@@ -162,6 +245,7 @@ def verify_wal(path: str | Path, *, root: str | Path = ".") -> VerificationRepor
 
 def _hash_links(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     links: list[dict[str, Any]] = []
+
     for index, record in enumerate(records):
         next_record = records[index + 1] if index + 1 < len(records) else None
         links.append(
@@ -171,6 +255,8 @@ def _hash_links(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "previous_hash": record.get("previous_hash"),
                 "record_hash": record.get("record_hash"),
                 "next_hash": next_record.get("record_hash") if next_record else None,
+                "wal_auth": record.get("wal_auth", {"mode": WAL_AUTH_UNKEYED}),
             }
         )
+
     return links
