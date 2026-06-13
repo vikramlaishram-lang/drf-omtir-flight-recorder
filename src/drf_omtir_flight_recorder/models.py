@@ -24,6 +24,8 @@ class Effect(str, Enum):
     LOW_RISK_WRITE = "LOW_RISK_WRITE"
     STATE_CHANGING = "STATE_CHANGING"
     DESTRUCTIVE = "DESTRUCTIVE"
+    ADMIN = "ADMIN"
+    UNKNOWN = "UNKNOWN"
 
 
 @dataclass(frozen=True)

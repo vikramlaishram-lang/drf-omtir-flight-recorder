@@ -128,3 +128,41 @@ The next highest-value direction is:
 ```text
 GitHub MCP Tool Inventory + conservative flat policy
 ```
+
+## DRF-Governed GitHub MCP Proxy Policy - PASS
+
+Checkpoint:
+
+```text
+DRF_GOVERNED_GITHUB_MCP_PROXY_PASS
+```
+
+Files changed:
+
+```text
+src/drf_omtir_flight_recorder/models.py
+src/drf_omtir_flight_recorder/proxy.py
+src/drf_omtir_flight_recorder/receipt.py
+tests/test_github_mcp_proxy_policy.py
+docs/AUDIT_ADDENDUM_POST_AUDIT_HARDENING_CHECKPOINT.md
+```
+
+Verification:
+
+```text
+python -m pytest tests/test_github_mcp_proxy_policy.py -q -> PASS
+python -m compileall src tests -> PASS
+python -m pytest -> 55 passed
+```
+
+Result:
+
+```text
+The local GitHub flat policy is loaded and enforced for mocked MCP tools/call requests. READ_ONLY GitHub tools are forwarded to the mocked upstream. LOW_RISK_WRITE tools are blocked before forwarding and create durable review queue items. DESTRUCTIVE, ADMIN, and UNKNOWN tools are denied before forwarding. The WAL records tool name, policy effect, policy decision, and forward/block result. The verifier passes the generated WAL chain, and the Trust Receipt reports GitHub tool governance consequences.
+```
+
+Boundary:
+
+```text
+This proves local GitHub MCP policy enforcement with a mocked upstream only. No live GitHub write or destructive call was made. This is not production remote GitHub MCP enforcement.
+```

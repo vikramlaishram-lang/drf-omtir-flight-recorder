@@ -75,7 +75,18 @@ def _governance_consequences(records: list[dict[str, Any]], root: Path) -> dict[
     pending_review_events = [
         event_id for event_id in pending_review_events if event_id not in resolved_reviewed_event_ids
     ]
-    review_queue = root / "reports" / "resilient-demo-review-queue.jsonl"
+    review_queue = next(
+        (
+            candidate
+            for candidate in [
+                root / "reports" / "resilient-demo-review-queue.jsonl",
+                root / "reports" / "mcp-proxy-review-queue.jsonl",
+                root / "reports" / "github-review-queue.jsonl",
+            ]
+            if candidate.exists()
+        ),
+        None,
+    )
     return {
         "quarantined_events": quarantined_events,
         "rejected_claim_events": rejected_claim_events,
@@ -84,8 +95,33 @@ def _governance_consequences(records: list[dict[str, Any]], root: Path) -> dict[
         "approved_review_events": approved_review_events,
         "rejected_review_events": rejected_review_events,
         "excluded_from_confirmed_claim_set": excluded,
-        "review_queue_path": review_queue.relative_to(root).as_posix() if review_queue.exists() else None,
+        "review_queue_path": review_queue.relative_to(root).as_posix() if review_queue else None,
     }
+
+
+def _mcp_tool_governance(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    consequences: list[dict[str, Any]] = []
+
+    for record in records:
+        payload = record.get("payload", {})
+        if payload.get("event_type") != "mcp_tool_call_decision":
+            continue
+
+        consequences.append(
+            {
+                "event_id": payload.get("event_id") or record.get("event_id"),
+                "tool": payload.get("parsed_tool_name"),
+                "decision": payload.get("drf_decision"),
+                "effect": payload.get("policy_effect", "UNKNOWN"),
+                "forward_result": payload.get(
+                    "forward_result",
+                    "FORWARDED" if payload.get("forwarded") else "BLOCKED",
+                ),
+                "policy_version": payload.get("policy_version"),
+            }
+        )
+
+    return consequences
 
 
 def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str, Any]:
@@ -145,6 +181,7 @@ def build_trust_receipt(path: str | Path, *, root: str | Path = ".") -> dict[str
         "verifier": verifier.to_dict(),
         "resilience": _resilience_context(records),
         "governance_consequences": _governance_consequences(records, root_path),
+        "mcp_tool_governance": _mcp_tool_governance(records),
         "boundary": BOUNDARY,
     }
 
@@ -218,6 +255,23 @@ def render_markdown(receipt: dict[str, Any]) -> str:
             "or all-agent safety.",
             "",
         ])
+
+    tool_governance = receipt.get("mcp_tool_governance") or []
+    if tool_governance:
+        lines.extend([
+            "## MCP / GitHub Tool Governance",
+            "",
+        ])
+        lines.extend(
+            [
+                "- "
+                f"{item.get('event_id')}: {item.get('tool')} -> "
+                f"{item.get('decision')} ({item.get('effect')}) -> "
+                f"{item.get('forward_result')}"
+                for item in tool_governance
+            ]
+        )
+        lines.append("")
 
     lines.extend([
         "## Boundary",

@@ -11,7 +11,7 @@ from .mcp_interceptor import InterceptionResult, intercept_mcp_message
 from .policy import Policy
 from .policy_loader import load_policy_yaml
 from .runtime_guard import enforce_local_mvp_scope
-from .review import ReviewAction, build_review_event
+from .review import ReviewAction, build_review_event, create_review_item
 from .signal import SignalEnvelope, build_signal_ingest_event, classify_signal_envelope
 from .tool_identity import (
     ToolIdentityManifest,
@@ -108,6 +108,7 @@ class GovernanceProxy:
         runtime_health: RuntimeHealth | None = None,
         server_origin: str = "wrapped_mcp_server",
         expected_tool_manifest: ToolIdentityManifest | None = None,
+        review_queue_path: str | Path | None = None,
     ):
         self.root = Path(root).resolve()
         self.policy = policy
@@ -121,6 +122,9 @@ class GovernanceProxy:
         self.baseline_tool_manifest = expected_tool_manifest
         self.observed_tool_manifest: ToolIdentityManifest | None = None
         self.tool_identity_errors_by_tool: dict[str, str] = {}
+        self.review_queue_path = Path(review_queue_path) if review_queue_path else (
+            self.root / "reports" / "mcp-proxy-review-queue.jsonl"
+        )
 
     def handle(self, message: dict[str, Any]) -> dict[str, Any] | None:
         clean_message = redact(message, self.redact_keys)
@@ -144,7 +148,10 @@ class GovernanceProxy:
             return self._forward_ungoverned(clean_message)
 
         result = self._apply_tool_identity_guard(result)
-        self._append_decision_event(result)
+        decision_record = self._append_decision_event(result)
+
+        if result.decision == "REQUEST_REVIEW" and decision_record is not None:
+            self._create_review_item(result, decision_record)
 
         if not result.forwarded:
             return result.response
@@ -255,11 +262,21 @@ class GovernanceProxy:
         }
         self.wal.append(payload)
 
-    def _append_decision_event(self, result: InterceptionResult) -> None:
+    def _append_decision_event(self, result: InterceptionResult) -> dict[str, Any] | None:
         if result.wal_payload is None:
-            return
+            return None
 
         payload = dict(result.wal_payload)
+        tool_name = payload.get("parsed_tool_name")
+        rule = self.policy.rule_for(tool_name) if isinstance(tool_name, str) else None
+        policy_effect = rule.effect.value if rule is not None else "UNKNOWN"
+        payload.update(
+            {
+                "policy_effect": policy_effect,
+                "policy_decision": payload.get("drf_decision"),
+                "forward_result": "FORWARDED" if payload.get("forwarded") else "BLOCKED",
+            }
+        )
         payload.update(
             {
                 "schema_version": "drf_omtir_mcp_proxy_event.v0.3",
@@ -269,7 +286,32 @@ class GovernanceProxy:
             }
         )
 
-        self.wal.append(payload)
+        return self.wal.append(payload)
+
+    def _create_review_item(
+        self,
+        result: InterceptionResult,
+        decision_record: dict[str, Any],
+    ) -> None:
+        if result.wal_payload is None:
+            return
+
+        payload = decision_record.get("payload", {})
+        tool_name = payload.get("parsed_tool_name") or "UNKNOWN_MCP_TOOL"
+        create_review_item(
+            root=self.root,
+            wal_path=self.wal.path,
+            review_event={
+                "event_id": decision_record["event_id"],
+                "decision": payload.get("drf_decision"),
+                "reason": payload.get("drf_reason"),
+                "record_hash": decision_record.get("record_hash"),
+            },
+            action=str(tool_name),
+            adapted_from_event_id=None,
+            boundary="MCP_PROXY_REQUEST_REVIEW",
+            queue_path=self.review_queue_path,
+        )
 
     def _append_tool_result_event(
         self,
