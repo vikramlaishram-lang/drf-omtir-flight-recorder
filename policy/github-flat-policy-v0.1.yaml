@@ -1,0 +1,272 @@
+version: drf-omtir-github-flat-policy-v0.1
+default_decision: DENY
+
+actions:
+  # READ_ONLY -> ALLOW
+  - name: get_commit
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_file_contents
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_label
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_latest_release
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_me
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_release_by_tag
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_tag
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_team_members
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: get_teams
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: issue_read
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_branches
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_commits
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_issue_fields
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_issue_types
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_issues
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_pull_requests
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_releases
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_repository_collaborators
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: list_tags
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: pull_request_read
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: search_code
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: search_commits
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: search_issues
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: search_pull_requests
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: search_repositories
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  - name: search_users
+    effect: READ_ONLY
+    decision: ALLOW
+    required_evidence_lanes: []
+    executable: true
+
+  # LOW_RISK_WRITE -> REQUEST_REVIEW
+  - name: add_comment_to_pending_review
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: add_issue_comment
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: add_reply_to_pull_request_comment
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: create_branch
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: create_pull_request
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: fork_repository
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: issue_write
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: pull_request_review_write
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: request_copilot_review
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: sub_issue_write
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  - name: update_pull_request
+    effect: LOW_RISK_WRITE
+    decision: REQUEST_REVIEW
+    required_evidence_lanes: []
+    executable: false
+
+  # DESTRUCTIVE -> DENY
+  - name: create_or_update_file
+    effect: DESTRUCTIVE
+    decision: DENY
+    required_evidence_lanes: []
+    executable: false
+
+  - name: delete_file
+    effect: DESTRUCTIVE
+    decision: DENY
+    required_evidence_lanes: []
+    executable: false
+
+  - name: merge_pull_request
+    effect: DESTRUCTIVE
+    decision: DENY
+    required_evidence_lanes: []
+    executable: false
+
+  - name: push_files
+    effect: DESTRUCTIVE
+    decision: DENY
+    required_evidence_lanes: []
+    executable: false
+
+  - name: update_pull_request_branch
+    effect: DESTRUCTIVE
+    decision: DENY
+    required_evidence_lanes: []
+    executable: false
+
+  # ADMIN -> DENY
+  - name: create_repository
+    effect: ADMIN
+    decision: DENY
+    required_evidence_lanes: []
+    executable: false
+
+  # UNKNOWN / sensitive-read until better policy exists -> DENY
+  - name: run_secret_scanning
+    effect: UNKNOWN
+    decision: DENY
+    required_evidence_lanes: []
+    executable: false
