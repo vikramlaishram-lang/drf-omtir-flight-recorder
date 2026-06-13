@@ -8,6 +8,7 @@ from .gateway import TypedGateway
 from .models import EvidenceLane, EvidenceRef, ToolResult
 from .policy import Policy
 from .receipt import write_trust_receipt
+from .review import create_review_item
 from .truefoundry_client import (
     MalformedProposalError,
     MissingTrueFoundryConfig,
@@ -264,39 +265,29 @@ def _authority_trace(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return trace
 
 
-def _write_review_queue(root: Path, review: dict[str, Any], adapted_from_event_id: str | None) -> Path:
-    review_queue_path = root / "reports" / "resilient-demo-review-queue.jsonl"
-    review_queue_path.parent.mkdir(parents=True, exist_ok=True)
-    review_item = {
-        "queue_version": "drf_omtir_review_queue.v0.1",
-        "event_id": review["event_id"],
-        "action": "restart_service",
-        "decision": review["decision"],
-        "reason": review["reason"],
-        "status": "PENDING_HUMAN_REVIEW",
-        "reviewer": "human_reviewer_required",
-        "adapted_from_event_id": adapted_from_event_id,
-        "boundary": "This is a local review stub for the bounded resilient-demo run.",
-    }
-    review_queue_path.write_text(json.dumps(review_item, sort_keys=True) + "\n", encoding="utf-8")
-    return review_queue_path
+def _write_review_queue(
+    root: Path, review: dict[str, Any], adapted_from_event_id: str | None, wal_path: Path
+) -> Path:
+    return create_review_item(
+        root=root,
+        wal_path=wal_path,
+        review_event=review,
+        action="restart_service",
+        adapted_from_event_id=adapted_from_event_id,
+        boundary="This is a local review item for the bounded resilient-demo run.",
+    )
 
 
-def _write_live_review_queue(root: Path, review: dict[str, Any], action: str) -> Path:
-    review_queue_path = root / "reports" / "live-proposal-demo-review-queue.jsonl"
-    review_queue_path.parent.mkdir(parents=True, exist_ok=True)
-    review_item = {
-        "queue_version": "drf_omtir_review_queue.v0.2",
-        "event_id": review["event_id"],
-        "action": action,
-        "decision": review["decision"],
-        "reason": review["reason"],
-        "status": "PENDING_HUMAN_REVIEW",
-        "reviewer": "human_reviewer_required",
-        "boundary": "This is a local review stub for the bounded live-proposal-demo run.",
-    }
-    review_queue_path.write_text(json.dumps(review_item, sort_keys=True) + "\n", encoding="utf-8")
-    return review_queue_path
+def _write_live_review_queue(root: Path, review: dict[str, Any], action: str, wal_path: Path) -> Path:
+    return create_review_item(
+        root=root,
+        wal_path=wal_path,
+        review_event=review,
+        action=action,
+        adapted_from_event_id=None,
+        boundary="This is a local review item for the bounded live-proposal-demo run.",
+        queue_path=root / "reports" / "live-proposal-demo-review-queue.jsonl",
+    )
 
 
 def _live_tool_execution_status(decision: str, executed: bool) -> str:
@@ -454,7 +445,7 @@ def run_resilient_demo(
         evidence=[structural_evidence],
         adapted_from_event_id=linked["event_id"],
     )
-    review_queue_path = _write_review_queue(root_path, review, linked["event_id"])
+    review_queue_path = _write_review_queue(root_path, review, linked["event_id"], wal_path)
     authority_trace = _authority_trace(wal.read())
 
     verifier = verify_wal(wal_path, root=root_path)
@@ -633,7 +624,7 @@ def run_live_proposal_demo(root: str | Path = ".") -> dict[str, Any]:
 
     review_path_value: str | None = None
     if action_result["decision"] == "REQUEST_REVIEW":
-        review_path = _write_live_review_queue(root_path, action_result, action)
+        review_path = _write_live_review_queue(root_path, action_result, action, wal_path)
         review_path_value = str(review_path)
 
     # Exercise OMTIR claim admission without inventing production evidence.

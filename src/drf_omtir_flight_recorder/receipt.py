@@ -34,6 +34,9 @@ def _governance_consequences(records: list[dict[str, Any]], root: Path) -> dict[
     rejected_claim_events: list[str] = []
     confirmed_claim_events: list[str] = []
     pending_review_events: list[str] = []
+    approved_review_events: list[str] = []
+    rejected_review_events: list[str] = []
+    resolved_reviewed_event_ids: set[str] = set()
 
     for record in records:
         payload = record.get("payload", {})
@@ -55,13 +58,31 @@ def _governance_consequences(records: list[dict[str, Any]], root: Path) -> dict[
         elif isinstance(drf, str) and drf == "REQUEST_REVIEW":
             pending_review_events.append(event_id)
 
+        review = payload.get("review") or {}
+        reviewer_status = review.get("reviewer_status")
+        reviewed_event_id = review.get("reviewed_event_id")
+        review_link = f"{reviewed_event_id}->{event_id}" if reviewed_event_id else event_id
+        if reviewer_status == "APPROVED_AFTER_REVIEW":
+            approved_review_events.append(review_link)
+            if reviewed_event_id:
+                resolved_reviewed_event_ids.add(str(reviewed_event_id))
+        elif reviewer_status == "REJECTED_AFTER_REVIEW":
+            rejected_review_events.append(review_link)
+            if reviewed_event_id:
+                resolved_reviewed_event_ids.add(str(reviewed_event_id))
+
     excluded = sorted(set(quarantined_events + rejected_claim_events))
+    pending_review_events = [
+        event_id for event_id in pending_review_events if event_id not in resolved_reviewed_event_ids
+    ]
     review_queue = root / "reports" / "resilient-demo-review-queue.jsonl"
     return {
         "quarantined_events": quarantined_events,
         "rejected_claim_events": rejected_claim_events,
         "confirmed_claim_events": confirmed_claim_events,
         "pending_review_events": pending_review_events,
+        "approved_review_events": approved_review_events,
+        "rejected_review_events": rejected_review_events,
         "excluded_from_confirmed_claim_set": excluded,
         "review_queue_path": review_queue.relative_to(root).as_posix() if review_queue.exists() else None,
     }
@@ -170,6 +191,10 @@ def render_markdown(receipt: dict[str, Any]) -> str:
         f"{_join_events(consequences.get('confirmed_claim_events', []))}",
         "- Pending human review events: "
         f"{_join_events(consequences.get('pending_review_events', []))}",
+        "- Approved after review: "
+        f"{_join_events(consequences.get('approved_review_events', []))}",
+        "- Rejected after review: "
+        f"{_join_events(consequences.get('rejected_review_events', []))}",
         f"- Review queue: {consequences.get('review_queue_path') or 'none'}",
         "",
     ]

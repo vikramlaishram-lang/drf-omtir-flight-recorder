@@ -7,6 +7,7 @@ from pathlib import Path
 from .core import init_workspace, run_demo, run_resilient_demo, run_live_proposal_demo
 from .proxy import run_stdio_proxy
 from .receipt import write_trust_receipt
+from .review import approve_review, list_review_items, reject_review
 from .verifier import verify_wal
 
 
@@ -126,6 +127,28 @@ def main(argv: list[str] | None = None) -> int:
     wrap_parser.add_argument("--wal")
     wrap_parser.add_argument("server_command", nargs=argparse.REMAINDER)
 
+    review_parser = subparsers.add_parser("review")
+    review_subparsers = review_parser.add_subparsers(dest="review_command", required=True)
+
+    review_list_parser = review_subparsers.add_parser("list")
+    review_list_parser.add_argument("--root", default=".")
+    review_list_parser.add_argument("--queue")
+
+    review_approve_parser = review_subparsers.add_parser("approve")
+    review_approve_parser.add_argument("event_id")
+    review_approve_parser.add_argument("--reviewer", required=True)
+    review_approve_parser.add_argument("--root", default=".")
+    review_approve_parser.add_argument("--queue")
+    review_approve_parser.add_argument("--wal")
+
+    review_reject_parser = review_subparsers.add_parser("reject")
+    review_reject_parser.add_argument("event_id")
+    review_reject_parser.add_argument("--reviewer", required=True)
+    review_reject_parser.add_argument("--reason", required=True)
+    review_reject_parser.add_argument("--root", default=".")
+    review_reject_parser.add_argument("--queue")
+    review_reject_parser.add_argument("--wal")
+
     args = parser.parse_args(argv)
 
     if args.command == "init":
@@ -158,6 +181,28 @@ def main(argv: list[str] | None = None) -> int:
         write_trust_receipt(wal_path, output, root=args.root)
         print(f"Trust Receipt: {output}")
         return 0
+
+    if args.command == "review":
+        root = Path(args.root)
+        queue_path = Path(args.queue) if getattr(args, "queue", None) else None
+        wal_path = Path(args.wal) if getattr(args, "wal", None) else None
+        if args.review_command == "list":
+            result = list_review_items(root, queue_path)
+        elif args.review_command == "approve":
+            result = approve_review(args.event_id, reviewer=args.reviewer, root=root, queue_path=queue_path, wal_path=wal_path)
+        elif args.review_command == "reject":
+            result = reject_review(
+                args.event_id,
+                reviewer=args.reviewer,
+                reason=args.reason,
+                root=root,
+                queue_path=queue_path,
+                wal_path=wal_path,
+            )
+        else:
+            parser.error("unknown review command")
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result["Status"] == "PASS" else 1
 
     if args.command == "wrap":
         command = list(args.server_command)
